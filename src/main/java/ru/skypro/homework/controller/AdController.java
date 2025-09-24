@@ -28,7 +28,7 @@ public class AdController {
 
     @GetMapping
     public List<Ad> getAllAds() {
-        return List.of(); // Возвращаем пустой список объявлений
+        return adService.getAllAds(); // Возвращаем пустой список объявлений
     }
 
     /**
@@ -53,8 +53,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @GetMapping("/{id}")
-    public ExtendedAd getAds(@Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return null;
+    public ExtendedAd getAds(@PathVariable Integer id) {
+        return adService.getAdById(id);
     }
 
     @Operation(summary = "Удаление объявления",
@@ -66,8 +66,9 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> removeAd(@Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    public ResponseEntity<Void> removeAd(@PathVariable Integer id) {
+        adService.removeAd(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Обновление информации об объявлении",
@@ -79,9 +80,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @PatchMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Ad updateAds(@Valid @RequestBody CreateOrUpdateAd updatedData,
-                        @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return null;
+    public Ad updateAds(@Valid @RequestBody CreateOrUpdateAd updatedData, @PathVariable Integer id) {
+        return adService.updateAd(updatedData, id);
     }
 
     @Operation(summary = "Получение комментариев объявления",
@@ -104,8 +104,7 @@ public class AdController {
             })
     @GetMapping("/me")
     public Ads getAdsMe() {
-        // Заглушка: возвращает null
-        return null;
+        return adService.getUserAds();
     }
 
     @Operation(summary = "Обновление картинки объявления",
@@ -121,7 +120,7 @@ public class AdController {
             @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id,
             @RequestParam("image") MultipartFile file) {
         // Заглушка: просто возвращаем пустой массив байтов
-        return ResponseEntity.ok().body(new byte[]{});
+        return ResponseEntity.ok(adService.updateImage(id, file));
     }
 
     @Operation(summary = "Добавление комментария к объявлению",
