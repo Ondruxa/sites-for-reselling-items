@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.skypro.homework.dto.*;
+import ru.skypro.homework.service.AdService;
 
 import javax.validation.Valid;
 import java.util.List;
@@ -22,16 +23,26 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/ads")
 public class AdController {
+
+    private final AdService adService;
+
     @GetMapping
     public List<Ad> getAllAds() {
         return List.of(); // Возвращаем пустой список объявлений
     }
 
+    /**
+     * Добавляет новое объявление с изображением.
+     *
+     * @param properties Объект с информацией об объявлении.
+     * @param image Изображение, прикрепленное к объявлению.
+     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> addAd(
-            @RequestParam("properties") CreateOrUpdateAd properties,
-            @RequestParam("image") MultipartFile image) {
-        return ResponseEntity.ok("Объявление успешно создано!");
+    public ResponseEntity<Void> addAd(
+            @RequestPart("properties") CreateOrUpdateAd properties,
+            @RequestPart("image") MultipartFile image) {
+        adService.addAd(properties, image);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @Operation(summary = "Получение информации об объявлении",
