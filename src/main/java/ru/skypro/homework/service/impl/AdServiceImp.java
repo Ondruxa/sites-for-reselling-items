@@ -2,10 +2,7 @@ package ru.skypro.homework.service.impl;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import ru.skypro.homework.dto.Ad;
-import ru.skypro.homework.dto.Ads;
-import ru.skypro.homework.dto.CreateOrUpdateAd;
-import ru.skypro.homework.dto.ExtendedAd;
+import ru.skypro.homework.dto.*;
 import ru.skypro.homework.service.AdService;
 
 import java.util.Collections;
@@ -51,5 +48,26 @@ public class AdServiceImp implements AdService {
         return new byte[0];
     }
 
+    @Override
+    public Comments getAdComments(Integer adId) {
 
+        return null;
+    }
+
+    @Override
+    public Comment addComment(CreateOrUpdateComment commentData, Integer adId) {
+
+        return null;
+    }
+
+    @Override
+    public Comment updateComment(CreateOrUpdateComment updatedData, Integer adId, Integer commentId) {
+
+        return null;
+    }
+
+    @Override
+    public void deleteComment(Integer adId, Integer commentId) {
+
+    }
 }

@@ -92,8 +92,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @GetMapping(value = "/{id}/comments")
-    public Comments getComments(@Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return null;
+    public Comments getComments(@PathVariable Integer id) {
+        return adService.getAdComments(id);
     }
 
     @Operation(summary = "Получение объявлений авторизованного пользователя",
@@ -131,9 +131,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @PostMapping(value = "/{id}/comments", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Comment addComment(@Valid @RequestBody CreateOrUpdateComment commentData,
-                              @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return null;
+    public Comment addComment(@Valid @RequestBody CreateOrUpdateComment commentData, @PathVariable Integer id) {
+        return adService.addComment(commentData, id);
     }
 
     @Operation(summary = "Удаление комментария",
@@ -145,9 +144,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @DeleteMapping("/{adId}/comments/{commentId}")
-    public ResponseEntity<Void> deleteComment(
-            @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer adId,
-            @Parameter(description = "Идентификатор комментария", example = "1", required = true) @PathVariable Integer commentId) {
+    public ResponseEntity<Void> deleteComment(@PathVariable Integer adId, @PathVariable Integer commentId) {
+        adService.deleteComment(adId, commentId);
         return ResponseEntity.ok().build();
     }
 
@@ -160,9 +158,7 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @PatchMapping(value = "/{adId}/comments/{commentId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Comment updateComment(@Valid @RequestBody CreateOrUpdateComment updatedData,
-                                 @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer adId,
-                                 @Parameter(description = "Идентификатор комментария", example = "1", required = true) @PathVariable Integer commentId) {
-        return null;
+    public Comment updateComment(@Valid @RequestBody CreateOrUpdateComment updatedData, @PathVariable Integer adId, @PathVariable Integer commentId) {
+        return adService.updateComment(updatedData, adId, commentId);
     }
 }
