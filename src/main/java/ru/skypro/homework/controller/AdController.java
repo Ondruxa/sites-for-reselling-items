@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.skypro.homework.dto.*;
+import ru.skypro.homework.service.AdService;
 
 import javax.validation.Valid;
 import java.util.List;
@@ -22,16 +23,26 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/ads")
 public class AdController {
+
+    private final AdService adService;
+
     @GetMapping
     public List<Ad> getAllAds() {
-        return List.of(); // Возвращаем пустой список объявлений
+        return adService.getAllAds(); // Возвращаем пустой список объявлений
     }
 
+    /**
+     * Добавляет новое объявление с изображением.
+     *
+     * @param properties Объект с информацией об объявлении.
+     * @param image Изображение, прикрепленное к объявлению.
+     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> addAd(
-            @RequestParam("properties") CreateOrUpdateAd properties,
-            @RequestParam("image") MultipartFile image) {
-        return ResponseEntity.ok("Объявление успешно создано!");
+    public ResponseEntity<Void> addAd(
+            @RequestPart("properties") CreateOrUpdateAd properties,
+            @RequestPart("image") MultipartFile image) {
+        adService.addAd(properties, image);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @Operation(summary = "Получение информации об объявлении",
@@ -42,8 +53,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @GetMapping("/{id}")
-    public ExtendedAd getAds(@Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return null;
+    public ExtendedAd getAds(@PathVariable Integer id) {
+        return adService.getAdById(id);
     }
 
     @Operation(summary = "Удаление объявления",
@@ -55,8 +66,9 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> removeAd(@Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    public ResponseEntity<Void> removeAd(@PathVariable Integer id) {
+        adService.removeAd(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Обновление информации об объявлении",
@@ -68,9 +80,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @PatchMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Ad updateAds(@Valid @RequestBody CreateOrUpdateAd updatedData,
-                        @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return null;
+    public Ad updateAds(@Valid @RequestBody CreateOrUpdateAd updatedData, @PathVariable Integer id) {
+        return adService.updateAd(updatedData, id);
     }
 
     @Operation(summary = "Получение комментариев объявления",
@@ -81,8 +92,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @GetMapping(value = "/{id}/comments")
-    public Comments getComments(@Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return null;
+    public Comments getComments(@PathVariable Integer id) {
+        return adService.getAdComments(id);
     }
 
     @Operation(summary = "Получение объявлений авторизованного пользователя",
@@ -93,8 +104,7 @@ public class AdController {
             })
     @GetMapping("/me")
     public Ads getAdsMe() {
-        // Заглушка: возвращает null
-        return null;
+        return adService.getUserAds();
     }
 
     @Operation(summary = "Обновление картинки объявления",
@@ -110,7 +120,7 @@ public class AdController {
             @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id,
             @RequestParam("image") MultipartFile file) {
         // Заглушка: просто возвращаем пустой массив байтов
-        return ResponseEntity.ok().body(new byte[]{});
+        return ResponseEntity.ok(adService.updateImage(id, file));
     }
 
     @Operation(summary = "Добавление комментария к объявлению",
@@ -121,9 +131,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @PostMapping(value = "/{id}/comments", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Comment addComment(@Valid @RequestBody CreateOrUpdateComment commentData,
-                              @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id) {
-        return null;
+    public Comment addComment(@Valid @RequestBody CreateOrUpdateComment commentData, @PathVariable Integer id) {
+        return adService.addComment(commentData, id);
     }
 
     @Operation(summary = "Удаление комментария",
@@ -135,9 +144,8 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @DeleteMapping("/{adId}/comments/{commentId}")
-    public ResponseEntity<Void> deleteComment(
-            @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer adId,
-            @Parameter(description = "Идентификатор комментария", example = "1", required = true) @PathVariable Integer commentId) {
+    public ResponseEntity<Void> deleteComment(@PathVariable Integer adId, @PathVariable Integer commentId) {
+        adService.deleteComment(adId, commentId);
         return ResponseEntity.ok().build();
     }
 
@@ -150,9 +158,7 @@ public class AdController {
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @PatchMapping(value = "/{adId}/comments/{commentId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Comment updateComment(@Valid @RequestBody CreateOrUpdateComment updatedData,
-                                 @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer adId,
-                                 @Parameter(description = "Идентификатор комментария", example = "1", required = true) @PathVariable Integer commentId) {
-        return null;
+    public Comment updateComment(@Valid @RequestBody CreateOrUpdateComment updatedData, @PathVariable Integer adId, @PathVariable Integer commentId) {
+        return adService.updateComment(updatedData, adId, commentId);
     }
 }

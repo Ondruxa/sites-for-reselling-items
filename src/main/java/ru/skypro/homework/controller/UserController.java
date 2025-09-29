@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import ru.skypro.homework.dto.NewPassword;
 import ru.skypro.homework.dto.UpdateUser;
 import ru.skypro.homework.dto.User;
+import ru.skypro.homework.service.UserService;
 
 @Slf4j
 @CrossOrigin(value = "http://localhost:3000")
@@ -21,18 +22,24 @@ import ru.skypro.homework.dto.User;
 @RequestMapping("/users")
 public class UserController {
 
+    private final UserService userService;
+
+    @Operation(summary = "Установка нового пароля пользователя")
     @PostMapping("/set_password")
     public void setPassword(@RequestBody NewPassword newPassword) {
+        userService.setPassword(newPassword); // Выполняем действие через сервис
     }
 
+    @Operation(summary = "Получение профиля текущего пользователя")
     @GetMapping("/me")
     public User getUser() {
-        return null;
+        return userService.getUser(); // Просто получаем пользователя из сервиса
     }
 
+    @Operation(summary = "Обновление профиля пользователя")
     @PatchMapping("/me")
     public UpdateUser updateUser(@RequestBody UpdateUser updateUser) {
-        return null;
+        return userService.updateUser(updateUser); // Передача обновления в сервис
     }
 
     @Operation(summary = "Обновление аватара авторизованного пользователя",
@@ -43,8 +50,7 @@ public class UserController {
             })
     @PatchMapping(value = "/me/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> updateUserImage(
-            @Parameter(description = "Изображение профиля", required = true) @RequestParam("image") MultipartFile image) {
-        // Заглушка: просто возвращаем успешный ответ
-        return ResponseEntity.ok().build();
+            @RequestParam("image") MultipartFile image) {
+        return userService.updateUserImage(image);
     }
 }
