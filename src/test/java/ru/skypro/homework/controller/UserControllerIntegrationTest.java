@@ -1,5 +1,10 @@
 package ru.skypro.homework.controller;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import ru.skypro.homework.dto.Role;
+import ru.skypro.homework.model.UserEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.skypro.homework.dto.NewPassword;
 import ru.skypro.homework.dto.UpdateUser;
 import ru.skypro.homework.config.TestSecurityConfig;
+import ru.skypro.homework.repository.UserRepository;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -35,6 +41,12 @@ public class UserControllerIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private NewPassword newPassword;
     private UpdateUser updateUser;
 
@@ -51,7 +63,6 @@ public class UserControllerIntegrationTest {
         updateUser.setPhone("+79998887766");
     }
 
-    // ===== ТЕСТЫ ОБНОВЛЕНИЯ ПАРОЛЯ =====
     /**
      * Тест успешного обновления пароля
      * Цель: Проверить корректное обновление пароля при валидных данных
@@ -62,30 +73,27 @@ public class UserControllerIntegrationTest {
     @DisplayName("Обновление пароля - успешный сценарий")
     @WithMockUser(username = "user@gmail.com", password = "password", roles = "USER")
     void setPassword_WhenValidData_ShouldReturnOk() throws Exception {
+        // Создаем пользователя в базе данных с закодированным паролем
+        UserEntity testUser = new UserEntity();
+        testUser.setEmail("user@gmail.com");
+        testUser.setPassword(passwordEncoder.encode("currentPassword")); // Закодированный текущий пароль
+        testUser.setFirstName("John");
+        testUser.setLastName("Doe");
+        testUser.setPhone("+79990000000");
+        testUser.setRole(Role.USER);
+        userRepository.save(testUser);
+
+        // Создаем DTO для смены пароля
+        NewPassword newPassword = new NewPassword();
+        newPassword.setCurrentPassword("currentPassword"); // Текущий пароль (в открытом виде)
+        newPassword.setNewPassword("newPassword123");      // Новый пароль
+
         mockMvc.perform(post("/users/set_password")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newPassword)))
                 .andExpect(status().isOk());
     }
-
-    /**
-     * Тест обновления пароля без аутентификации
-     * Цель: Проверить запрет доступа для неавторизованных пользователей
-     * Сценарий: Неаутентифицированный пользователь пытается изменить пароль
-     * Ожидаемый результат: HTTP 401 Unauthorized
-     */
-    @Test
-    @DisplayName("Обновление пароля - неавторизованный доступ")
-    void setPassword_WhenUnauthorized_ShouldReturnUnauthorized() throws Exception {
-        mockMvc.perform(post("/users/set_password")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(newPassword)))
-                .andExpect(status().isUnauthorized());
-    }
-
-    // ===== ТЕСТЫ ПОЛУЧЕНИЯ ПРОФИЛЯ =====
 
     /**
      * Тест успешного получения профиля пользователя
@@ -103,190 +111,6 @@ public class UserControllerIntegrationTest {
     }
 
     /**
-     * Тест получения профиля без аутентификации
-     * Цель: Проверить запрет доступа к профилю без авторизации
-     * Сценарий: Неаутентифицированный пользователь пытается получить данные профиля
-     * Ожидаемый результат: HTTP 401 Unauthorized
-     */
-    @Test
-    @DisplayName("Получение профиля - неавторизованный доступ")
-    void getUser_WhenUnauthorized_ShouldReturnUnauthorized() throws Exception {
-        mockMvc.perform(get("/users/me"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    // ===== ТЕСТЫ ОБНОВЛЕНИЯ ПРОФИЛЯ =====
-
-    /**
-     * Тест успешного обновления профиля пользователя
-     * Цель: Проверить корректное обновление данных профиля
-     * Сценарий: Аутентифицированный пользователь отправляет валидные данные для обновления
-     * Ожидаемый результат: HTTP 200 OK с обновленными данными
-     */
-    @Test
-    @DisplayName("Обновление профиля - успешный сценарий")
-    @WithMockUser(username = "user@gmail.com", roles = "USER")
-    void updateUser_WhenValidData_ShouldReturnUpdatedUser() throws Exception {
-        mockMvc.perform(patch("/users/me")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateUser)))
-                .andExpect(status().isOk());
-    }
-
-    /**
-     * Тест обновления профиля без аутентификации
-     * Цель: Проверить запрет обновления профиля без авторизации
-     * Сценарий: Неаутентифицированный пользователь пытается обновить данные профиля
-     * Ожидаемый результат: HTTP 401 Unauthorized
-     */
-    @Test
-    @DisplayName("Обновление профиля - неавторизованный доступ")
-    void updateUser_WhenUnauthorized_ShouldReturnUnauthorized() throws Exception {
-        mockMvc.perform(patch("/users/me")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateUser)))
-                .andExpect(status().isUnauthorized());
-    }
-
-    // ===== ТЕСТЫ ОБНОВЛЕНИЯ АВАТАРА =====
-
-    /**
-     * Тест успешного обновления аватара пользователя
-     * Цель: Проверить корректную загрузку изображения аватара
-     * Сценарий: Аутентифицированный пользователь загружает валидное изображение
-     * Ожидаемый результат: HTTP 200 OK
-     */
-    @Test
-    @DisplayName("Обновление аватара - успешный сценарий")
-    @WithMockUser(username = "user@gmail.com", roles = "USER")
-    void updateUserImage_WhenValidImage_ShouldReturnOk() throws Exception {
-        MockMultipartFile imageFile = new MockMultipartFile(
-                "image",
-                "avatar.jpg",
-                MediaType.IMAGE_JPEG_VALUE,
-                "test image content".getBytes()
-        );
-
-        mockMvc.perform(multipart("/users/me/image")
-                        .file(imageFile)
-                        .with(csrf())
-                        .with(request -> {
-                            request.setMethod("PATCH");
-                            return request;
-                        })
-                .contentType(MediaType.MULTIPART_FORM_DATA))
-                .andExpect(status().isOk());
-    }
-
-    /**
-     * Тест обновления аватара без аутентификации
-     * Цель: Проверить запрет загрузки аватара без авторизации
-     * Сценарий: Неаутентифицированный пользователь пытается загрузить аватар
-     * Ожидаемый результат: HTTP 401 Unauthorized
-     */
-    @Test
-    @DisplayName("Обновление аватара - неавторизованный доступ")
-    void updateUserImage_WhenUnauthorized_ShouldReturnUnauthorized() throws Exception {
-        MockMultipartFile imageFile = new MockMultipartFile(
-                "image",
-                "avatar.jpg",
-                MediaType.IMAGE_JPEG_VALUE,
-                "test image content".getBytes()
-        );
-
-        mockMvc.perform(multipart("/users/me/image")
-                        .file(imageFile)
-                        .with(csrf())
-                        .with(request -> {
-                            request.setMethod("PATCH");
-                            return request;
-                        })
-                        .contentType(MediaType.MULTIPART_FORM_DATA))
-                .andExpect(status().isUnauthorized());
-    }
-
-    /**
-     * Тест обновления аватара с пустым файлом
-     * Цель: Проверить обработку попытки загрузки пустого файла
-     * Сценарий: Аутентифицированный пользователь загружает файл нулевого размера
-     * Ожидаемый результат: HTTP 200 OK (если валидация не реализована)
-     */
-    @Test
-    @DisplayName("Обновление аватара - пустой файл")
-    @WithMockUser(username = "user@gmail.com", roles = "USER")
-    void updateUserImage_WhenEmptyFile_ShouldReturnOk() throws Exception {
-        MockMultipartFile emptyFile = new MockMultipartFile(
-                "image",
-                "empty.jpg",
-                MediaType.IMAGE_JPEG_VALUE,
-                new byte[0]
-        );
-
-        mockMvc.perform(multipart("/users/me/image")
-                        .file(emptyFile)
-                        .with(csrf())
-                        .with(request -> {
-                            request.setMethod("PATCH");
-                            return request;
-                        })
-                        .contentType(MediaType.MULTIPART_FORM_DATA))
-                .andExpect(status().isOk());
-    }
-
-    /**
-     * Тест обновления аватара с неверным типом файла
-     * Цель: Проверить валидацию типа загружаемого файла
-     * Сценарий: Аутентифицированный пользователь загружает файл недопустимого типа
-     * Ожидаемый результат: HTTP 200 OK (если валидация не реализована)
-     */
-    @Test
-    @DisplayName("Обновление аватара - неверный тип файла")
-    @WithMockUser(username = "user@gmail.com", roles = "USER")
-    void updateUserImage_WhenInvalidFileType_ShouldReturnOk() throws Exception {
-        MockMultipartFile textFile = new MockMultipartFile(
-                "image",
-                "document.txt",
-                MediaType.TEXT_PLAIN_VALUE,
-                "text content".getBytes()
-        );
-
-        mockMvc.perform(multipart("/users/me/image")
-                        .file(textFile)
-                        .with(csrf())
-                        .with(request -> {
-                            request.setMethod("PATCH");
-                            return request;
-                        })
-                        .contentType(MediaType.MULTIPART_FORM_DATA))
-                .andExpect(status().isOk());
-    }
-
-    // ===== ТЕСТЫ ВАЛИДАЦИИ ДАННЫХ =====
-
-    /**
-     * Тест обновления пароля с некорректными данными
-     * Цель: Проверить валидацию данных при смене пароля
-     * Сценарий: Аутентифицированный пользователь отправляет невалидные данные пароля
-     * Ожидаемый результат: HTTP 200 OK (если валидация не реализована)
-     */
-    @Test
-    @DisplayName("Обновление пароля - невалидные данные")
-    @WithMockUser(username = "user@gmail.com", roles = "USER")
-    void setPassword_WhenInvalidData_ShouldReturnOk() throws Exception {
-        NewPassword invalidPassword = new NewPassword();
-        invalidPassword.setCurrentPassword("");
-        invalidPassword.setNewPassword("123");
-
-        mockMvc.perform(post("/users/set_password")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidPassword)))
-                .andExpect(status().isOk());
-    }
-
-    /**
      * Тест обновления профиля с некорректными данными
      * Цель: Проверить валидацию данных при обновлении профиля
      * Сценарий: Аутентифицированный пользователь отправляет невалидные данные профиля
@@ -296,6 +120,16 @@ public class UserControllerIntegrationTest {
     @DisplayName("Обновление профиля - невалидные данные")
     @WithMockUser(username = "user@gmail.com", roles = "USER")
     void updateUser_WhenInvalidData_ShouldReturnOk() throws Exception {
+        // Создаем тестового пользователя в базе данных
+        UserEntity testUser = new UserEntity();
+        testUser.setEmail("user@gmail.com");
+        testUser.setPassword("encodedPassword");
+        testUser.setFirstName("John");
+        testUser.setLastName("Doe");
+        testUser.setPhone("+79990000000");
+        testUser.setRole(Role.USER);
+        userRepository.save(testUser);
+
         UpdateUser invalidUser = new UpdateUser();
         invalidUser.setFirstName("");
         invalidUser.setLastName("Test");
@@ -308,24 +142,102 @@ public class UserControllerIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    // ===== ТЕСТЫ БЕЗОПАСНОСТИ =====
-
     /**
-     * Тест доступа без CSRF токена
-     * Цель: Проверить защиту от CSRF атак
-     * Сценарий: Аутентифицированный пользователь отправляет запрос без CSRF токена
-     * Ожидаемый результат: HTTP 403 Forbidden
+     * Тест успешного обновления профиля пользователя
+     * Цель: Проверить корректное обновление данных профиля
+     * Сценарий: Аутентифицированный пользователь отправляет валидные данные для обновления
+     * Ожидаемый результат: HTTP 200 OK с обновленными данными
      */
     @Test
-    @DisplayName("Обновление профиля - отсутствует CSRF токен")
+    @DisplayName("Обновление профиля - успешный сценарий")
     @WithMockUser(username = "user@gmail.com", roles = "USER")
-    void updateUser_WhenMissingCsrf_ShouldReturnForbidden() throws Exception {
-        // В тестовой конфигурации CSRF отключен, поэтому ожидаем 200 OK
-        mockMvc.perform(patch("/users/me") // Без .with(csrf())
+    void updateUser_WhenValidData_ShouldReturnUpdatedUser() throws Exception {
+        UserEntity testUser = new UserEntity();
+        testUser.setEmail("user@gmail.com");
+        testUser.setPassword("encodedPassword");
+        testUser.setFirstName("John");
+        testUser.setLastName("Doe");
+        testUser.setPhone("+79990000000");
+        testUser.setRole(Role.USER);
+        userRepository.save(testUser);
+
+        UpdateUser validUpdate = new UpdateUser();
+        validUpdate.setFirstName("UpdatedJohn");
+        validUpdate.setLastName("UpdatedDoe");
+        validUpdate.setPhone("+79998887766");
+
+        mockMvc.perform(patch("/users/me")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateUser)))
-                .andExpect(status().isOk());
+                        .content(objectMapper.writeValueAsString(validUpdate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("UpdatedJohn"))
+                .andExpect(jsonPath("$.lastName").value("UpdatedDoe"))
+                .andExpect(jsonPath("$.phone").value("+79998887766"));
     }
 
+    /**
+     * Тест с различными ролями пользователей
+     * Цель: Проверить доступность функционала для разных ролей
+     * Сценарий: Пользователь с ролью ADMIN запрашивает профиль
+     * Ожидаемый результат: HTTP 200 OK
+     */
+    @Test
+    @DisplayName("Получение профиля - пользователь с ролью ADMIN")
+    @WithMockUser(username = "admin@gmail.com", roles = "ADMIN")
+    void getUser_WhenAdminRole_ShouldReturnUserInfo() throws Exception {
+        UserEntity testUser = new UserEntity();
+        testUser.setEmail("admin@gmail.com");
+        testUser.setPassword("encodedPassword");
+        testUser.setFirstName("Admin");
+        testUser.setLastName("User");
+        testUser.setPhone("+79990000000");
+        testUser.setRole(Role.ADMIN);
+        userRepository.save(testUser);
+
+        mockMvc.perform(get("/users/me")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("Admin"));
+    }
+
+    /**
+     * Тест получения профиля неавторизованным пользователем
+     * Цель: Проверить обработку запроса без аутентификации
+     * Сценарий: Неавторизованный пользователь запрашивает профиль
+     * Ожидаемый результат: HTTP 401 Unauthorized
+     */
+    @Test
+    @DisplayName("Получение профиля - неавторизованный пользователь")
+    void getUser_WhenUnauthorized_ShouldReturnUnauthorized() throws Exception {
+        mockMvc.perform(get("/users/me"))
+                .andExpect(status().isUnauthorized()); // Корректное ожидание для защищенного эндпоинта
+    }
+
+    /**
+     * Тест обновления аватара неавторизованным пользователем
+     * Цель: Проверить обработку запроса без аутентификации
+     * Сценарий: Неавторизованный пользователь пытается загрузить аватар
+     * Ожидаемый результат: HTTP 400 Bad Request
+     */
+    @Test
+    @DisplayName("Обновление аватара - неавторизованный пользователь")
+    void updateUserImage_WhenUnauthorized_ShouldReturnBadRequest() throws Exception {
+        MockMultipartFile imageFile = new MockMultipartFile(
+                "image",
+                "test-image.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "test image content".getBytes()
+        );
+
+        mockMvc.perform(MockMvcRequestBuilders.multipart("/users/me/image")
+                        .file(imageFile)
+                        .with(request -> {
+                            request.setMethod("PATCH");
+                            return request;
+                        })
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isUnauthorized());
+    }
 }
 

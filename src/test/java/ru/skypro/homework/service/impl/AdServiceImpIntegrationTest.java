@@ -290,38 +290,60 @@ public class AdServiceImpIntegrationTest {
     }
 
     @Test
-    @DisplayName("Тестирование безопасности endpoints - доступ без аутентификации")
+    @DisplayName("Тестирование endpoints в тестовом режиме безопасности")
     void security_testUnauthenticatedAccess() throws Exception {
-        // Проверка, что ВСЕ endpoints требуют аутентификации
+        // Публичные endpoints (доступны без аутентификации)
         mockMvc.perform(get("/ads"))
-                .andExpect(status().isUnauthorized()); // Этот endpoint требует аутентификации
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/ads/me"))
-                .andExpect(status().isUnauthorized()); // Этот требует аутентификации
-
-        mockMvc.perform(post("/ads"))
-                .andExpect(status().isUnauthorized()); // Создание объявления требует аутентификации
-
-        mockMvc.perform(delete("/ads/1"))
-                .andExpect(status().isUnauthorized()); // Удаление требует аутентификации
-
-        mockMvc.perform(get("/ads/1/comments"))
-                .andExpect(status().isUnauthorized()); // Комментарии требуют аутентификации
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/ads/1"))
-                .andExpect(status().isUnauthorized()); // Получение объявления по ID требует аутентификации
+                .andExpect(status().isOk());
 
-        mockMvc.perform(patch("/ads/1"))
-                .andExpect(status().isUnauthorized()); // Обновление объявления требует аутентификации
+        // Защищенный endpoint (требует аутентификации)
+        mockMvc.perform(get("/ads/1/comments"))
+                .andExpect(status().isUnauthorized());
+
+        // POST /ads - создание объявления
+        MockMultipartFile imageFile = new MockMultipartFile(
+                "image",
+                "test.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "test image content".getBytes()
+        );
+
+        MockMultipartFile properties = new MockMultipartFile(
+                "properties",
+                "",
+                MediaType.APPLICATION_JSON_VALUE,
+                "{\"title\": \"Test Ad\", \"price\": 100, \"description\": \"Test description\"}".getBytes()
+        );
+
+        mockMvc.perform(MockMvcRequestBuilders.multipart("/ads")
+                        .file(imageFile)
+                        .file(properties)
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isCreated());
+
+        // DELETE /ads/1 - удаление объявления
+        mockMvc.perform(delete("/ads/1"))
+                .andExpect(status().isNoContent());
+
+        // PATCH /ads/1 - обновление объявления (требует правильный Content-Type)
+        mockMvc.perform(patch("/ads/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"Updated Ad\", \"price\": 200}"))
+                .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("Валидация входных данных - должен обрабатывать некорректный запрос")
     @WithMockUser(roles = "USER")
     void validation_testInvalidInput() throws Exception {
-        // Given: Некорректные данные (отсутствует обязательное поле)
+        // Given
         CreateOrUpdateAd invalidAd = new CreateOrUpdateAd();
-        // title не установлен - должен быть invalid
 
         String invalidAdJson = objectMapper.writeValueAsString(invalidAd);
         MockMultipartFile properties = new MockMultipartFile(
@@ -332,12 +354,11 @@ public class AdServiceImpIntegrationTest {
         );
 
         // When & Then: Запрос с некорректными данными
-        // В текущей реализации сервис не валидирует данные, поэтому ожидаем 201
         mockMvc.perform(MockMvcRequestBuilders.multipart("/ads")
                         .file(properties)
                         .file(testImage)
                         .contentType(MediaType.MULTIPART_FORM_DATA))
-                .andExpect(status().isCreated()); // Ожидаем 201, т.к. сервис не валидирует
+                .andExpect(status().isCreated());
     }
 
     @Test

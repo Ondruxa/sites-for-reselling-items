@@ -1,291 +1,241 @@
 package ru.skypro.homework.service.impl;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.UserDetailsManager;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 import ru.skypro.homework.dto.Register;
-import ru.skypro.homework.service.AuthService;
-import ru.skypro.homework.config.TestSecurityConfig;
+import ru.skypro.homework.dto.Role;
+import ru.skypro.homework.model.UserEntity;
+import ru.skypro.homework.repository.UserRepository;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Интеграционные тесты для AuthServiceImpl
- * <p>
- * Особенности:
- * - Полностью отключает Spring Security через properties
- * - Использует H2 in-memory базу данных
- * - Тестирует реальное взаимодействие с UserDetailsManager и PasswordEncoder
- * - @Transactional обеспечивает изоляцию тестов
- */
 @SpringBootTest
+@ActiveProfiles("test")
 @Transactional
-@Import(TestSecurityConfig.class)
-@TestPropertySource(locations = "classpath:application-test.properties")
-
 public class AuthServiceImplIntegrationTest {
 
     @Autowired
-    private AuthService authService;
+    private AuthServiceImpl authService;
 
     @Autowired
-    private UserDetailsManager userDetailsManager;
+    private UserRepository userRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    private static final String TEST_USERNAME = "testuser@example.com";
-    private static final String TEST_PASSWORD = "password123";
-    private static final String TEST_FIRST_NAME = "Ivan";
-    private static final String TEST_LAST_NAME = "Ivanov";
-    private static final String TEST_PHONE = "+79991234567";
-    private static final String TEST_INVALID_USERNAME = "nonexistent@example.com";
-
     /**
-     * Очистка перед каждым тестом
-     * Удаляем тестового пользователя, если он существует
-     */
-    @BeforeEach
-    void setUp() {
-        if (userDetailsManager.userExists(TEST_USERNAME)) {
-            userDetailsManager.deleteUser(TEST_USERNAME);
-        }
-        // Также очищаем других тестовых пользователей
-        if (userDetailsManager.userExists("admin@example.com")) {
-            userDetailsManager.deleteUser("admin@example.com");
-        }
-        if (userDetailsManager.userExists("minimal@example.com")) {
-            userDetailsManager.deleteUser("minimal@example.com");
-        }
-        if (userDetailsManager.userExists("empty@example.com")) {
-            userDetailsManager.deleteUser("empty@example.com");
-        }
-    }
-
-    /**
-     * Вспомогательный метод для создания тестового пользователя
-     */
-    private void createTestUser(String username, String password) {
-        userDetailsManager.createUser(
-                User.builder()
-                        .passwordEncoder(passwordEncoder::encode)
-                        .password(password)
-                        .username(username)
-                        .roles("USER")
-                        .build()
-        );
-    }
-
-    /**
-     * Вспомогательный метод для создания DTO регистрации
-     */
-    private Register createRegisterDto(String username, String password, String firstName,
-                                       String lastName, String phone, ru.skypro.homework.dto.Role role) {
-        Register register = new Register();
-        register.setUsername(username);
-        register.setPassword(password);
-        register.setFirstName(firstName);
-        register.setLastName(lastName);
-        register.setPhone(phone);
-        register.setRole(role);
-        return register;
-    }
-
-    /**
-     * Тест успешной аутентификации существующего пользователя
+     * Тест успешной аутентификации с корректными учетными данными
+     * - Создается пользователь в базе данных с закодированным паролем
+     * - Выполняется попытка входа с правильным email и паролем
+     * - Ожидается возврат true (успешная аутентификация)
      */
     @Test
     void login_WithValidCredentials_ShouldReturnTrue() {
-        // Given: создаем пользователя напрямую через UserDetailsManager
-        createTestUser(TEST_USERNAME, TEST_PASSWORD);
+        // Given
+        String email = "test@example.com";
+        String password = "password123";
 
-        // When: пытаемся аутентифицироваться
-        boolean result = authService.login(TEST_USERNAME, TEST_PASSWORD);
+        UserEntity user = new UserEntity();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setFirstName("John");
+        user.setLastName("Doe");
+        user.setPhone("+79999999999");
+        user.setRole(Role.USER);
+        userRepository.save(user);
 
-        // Then: аутентификация должна быть успешной
-        assertTrue(result, "Аутентификация должна быть успешной для валидных учетных данных");
+        // When
+        boolean result = authService.login(email, password);
+
+        // Then
+        assertTrue(result);
     }
 
     /**
      * Тест неуспешной аутентификации с неверным паролем
+     * - Создается пользователь в базе данных
+     * - Выполняется попытка входа с правильным email, но неверным паролем
+     * - Ожидается возврат false (неуспешная аутентификация)
      */
     @Test
     void login_WithInvalidPassword_ShouldReturnFalse() {
-        // Given: создаем пользователя
-        createTestUser(TEST_USERNAME, TEST_PASSWORD);
+        // Given
+        String email = "test@example.com";
+        String correctPassword = "password123";
+        String wrongPassword = "wrongpassword";
 
-        // When: пытаемся аутентифицироваться с неверным паролем
-        boolean result = authService.login(TEST_USERNAME, "wrongpassword");
+        UserEntity user = new UserEntity();
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(correctPassword));
+        user.setFirstName("John");
+        user.setLastName("Doe");
+        user.setPhone("+79999999999");
+        user.setRole(Role.USER);
+        userRepository.save(user);
 
-        // Then: аутентификация должна провалиться
-        assertFalse(result, "Аутентификация должна провалиться для неверного пароля");
+        // When
+        boolean result = authService.login(email, wrongPassword);
+
+        // Then
+        assertFalse(result);
     }
 
     /**
-     * Тест аутентификации несуществующего пользователя
+     * Тест неуспешной аутентификации с несуществующим пользователем
+     * - В базе данных нет пользователя с указанным email
+     * - Выполняется попытка входа с несуществующими учетными данными
+     * - Ожидается возврат false (неуспешная аутентификация)
      */
     @Test
     void login_WithNonExistentUser_ShouldReturnFalse() {
-        // When: пытаемся аутентифицироваться с несуществующим пользователем
-        boolean result = authService.login(TEST_INVALID_USERNAME, TEST_PASSWORD);
+        // When
+        boolean result = authService.login("nonexistent@example.com", "password");
 
-        // Then: аутентификация должна провалиться
-        assertFalse(result, "Аутентификация должна провалиться для несуществующего пользователя");
+        // Then
+        assertFalse(result);
     }
 
     /**
-     * Тест успешной регистрации нового пользователя с ролью USER
+     * Тест успешной регистрации нового пользователя
+     * - Создается DTO с данными нового пользователя
+     * - Выполняется регистрация пользователя
+     * - Проверяется, что пользователь сохранен в базе с корректными данными
+     * - Проверяется, что пароль закодирован
      */
     @Test
-    void register_WithNewUserAndUserRole_ShouldCreateUserAndReturnTrue() {
-        // Given: создаем DTO для регистрации со всеми полями
-        Register register = createRegisterDto(TEST_USERNAME, TEST_PASSWORD, TEST_FIRST_NAME,
-                TEST_LAST_NAME, TEST_PHONE, ru.skypro.homework.dto.Role.USER);
+    void register_WithNewUser_ShouldReturnTrueAndSaveUser() {
+        // Given
+        Register register = new Register();
+        register.setUsername("newuser@example.com");
+        register.setPassword("newpassword123");
+        register.setFirstName("Jane");
+        register.setLastName("Smith");
+        register.setPhone("+78888888888");
+        register.setRole(Role.USER); // В DTO передаем строку, маппер конвертирует в enum
 
-        // When: регистрируем нового пользователя
+        // When
         boolean result = authService.register(register);
 
-        // Then: регистрация должна быть успешной
-        assertTrue(result, "Регистрация должна быть успешной для нового пользователя");
+        // Then
+        assertTrue(result);
 
-        // And: пользователь должен существовать в системе
-        assertTrue(userDetailsManager.userExists(TEST_USERNAME),
-                "Пользователь должен быть создан в системе");
+        Optional<UserEntity> savedUser = userRepository.findByEmail("newuser@example.com");
+        assertTrue(savedUser.isPresent());
+        assertEquals("Jane", savedUser.get().getFirstName());
+        assertEquals("Smith", savedUser.get().getLastName());
+        assertEquals("+78888888888", savedUser.get().getPhone());
+        assertEquals(Role.USER, savedUser.get().getRole());
 
-        // And: пользователь должен иметь возможность аутентифицироваться
-        UserDetails userDetails = userDetailsManager.loadUserByUsername(TEST_USERNAME);
-        assertNotNull(userDetails, "Детали пользователя не должны быть null");
-        assertTrue(passwordEncoder.matches(TEST_PASSWORD, userDetails.getPassword()),
-                "Пароль должен быть корректно закодирован");
+        // Verify password is encoded
+        assertTrue(passwordEncoder.matches("newpassword123", savedUser.get().getPassword()));
     }
 
     /**
-     * Тест попытки регистрации уже существующего пользователя
+     * Тест неуспешной регистрации с существующим email
+     * - Создается пользователь с определенным email
+     * - Выполняется попытка регистрации нового пользователя с тем же email
+     * - Ожидается возврат false
+     * - Проверяется, что исходный пользователь не был изменен
      */
     @Test
-    void register_WithExistingUser_ShouldReturnFalse() {
-        // Given: создаем пользователя
-        createTestUser(TEST_USERNAME, TEST_PASSWORD);
+    void register_WithExistingEmail_ShouldReturnFalse() {
+        // Given
+        String existingEmail = "existing@example.com";
 
-        // And: создаем DTO для регистрации с тем же username
-        Register register = createRegisterDto(TEST_USERNAME, "newpassword", "Petr",
-                "Petrov", "+79997654321", ru.skypro.homework.dto.Role.USER);
+        UserEntity existingUser = new UserEntity();
+        existingUser.setEmail(existingEmail);
+        existingUser.setPassword(passwordEncoder.encode("password"));
+        existingUser.setFirstName("Existing");
+        existingUser.setLastName("User");
+        existingUser.setPhone("+77777777777");
+        existingUser.setRole(Role.USER);
+        userRepository.save(existingUser);
 
-        // When: пытаемся зарегистрировать существующего пользователя
+        Register register = new Register();
+        register.setUsername(existingEmail);
+        register.setPassword("newpassword");
+        register.setFirstName("New");
+        register.setLastName("User");
+        register.setPhone("+76666666666");
+        register.setRole(Role.USER);
+
+        // When
         boolean result = authService.register(register);
 
-        // Then: регистрация должна провалиться
-        assertFalse(result, "Регистрация должна провалиться для существующего пользователя");
+        // Then
+        assertFalse(result);
+
+        Optional<UserEntity> user = userRepository.findByEmail(existingEmail);
+        assertTrue(user.isPresent());
+        assertEquals("Existing", user.get().getFirstName());
+        assertEquals(Role.USER, user.get().getRole()); // Проверяем, что роль не изменилась
     }
 
     /**
-     * Тест проверки кодирования пароля при регистрации
+     * Тест регистрации с пустым паролем
+     * - Создается DTO с пустым паролем
+     * - Выполняется регистрация пользователя
+     * - Проверяется, что пароль закодирован
+     * - Проверяется, что пользователь успешно сохранен
      */
     @Test
-    void register_ShouldEncodePassword() {
-        // Given: создаем DTO для регистрации
-        Register register = createRegisterDto(TEST_USERNAME, TEST_PASSWORD, TEST_FIRST_NAME,
-                TEST_LAST_NAME, TEST_PHONE, ru.skypro.homework.dto.Role.USER);
+    void register_WithEmptyPassword_ShouldEncodeAndSaveUser() {
+        // Given
+        Register register = new Register();
+        register.setUsername("emptyPassword@example.com");
+        register.setPassword("");
+        register.setFirstName("Empty");
+        register.setLastName("Password");
+        register.setPhone("+75555555555");
+        register.setRole(Role.USER);
 
-        // When: регистрируем пользователя
-        authService.register(register);
+        // When
+        boolean result = authService.register(register);
 
-        // Then: проверяем, что пароль закодирован
-        UserDetails userDetails = userDetailsManager.loadUserByUsername(TEST_USERNAME);
-        String storedPassword = userDetails.getPassword();
+        // Then
+        assertTrue(result);
 
-        assertNotEquals(TEST_PASSWORD, storedPassword,
-                "Пароль не должен храниться в открытом виде");
-        assertTrue(passwordEncoder.matches(TEST_PASSWORD, storedPassword),
-                "Закодированный пароль должен соответствовать исходному");
+        Optional<UserEntity> savedUser = userRepository.findByEmail("emptyPassword@example.com");
+        assertTrue(savedUser.isPresent());
+        // Password should be encoded, not stored as plain text
+        assertNotEquals("", savedUser.get().getPassword());
+        assertTrue(passwordEncoder.matches("", savedUser.get().getPassword()));
+        assertEquals(Role.USER, savedUser.get().getRole()); // Проверяем роль
     }
 
     /**
      * Тест регистрации пользователя с ролью ADMIN
+     * - Создается DTO с ролью ADMIN
+     * - Выполняется регистрация пользователя
+     * - Проверяется, что пользователь сохранен с правильной ролью ADMIN
+     * - Проверяется успешность операции регистрации
      */
     @Test
-    void register_WithAdminRole_ShouldCreateAdminUser() {
-        // Given: создаем DTO для регистрации с ролью ADMIN
-        Register register = createRegisterDto("admin@example.com", TEST_PASSWORD,
-                "Admin", "Adminov", "+79998887766", ru.skypro.homework.dto.Role.ADMIN);
-
-        // When: регистрируем пользователя
-        boolean result = authService.register(register);
-
-        // Then: регистрация должна быть успешной
-        assertTrue(result, "Регистрация должна быть успешной для ADMIN пользователя");
-        assertTrue(userDetailsManager.userExists("admin@example.com"),
-                "ADMIN пользователь должен быть создан в системе");
-    }
-
-    /**
-     * Тест регистрации с минимальными данными (только обязательные поля)
-     */
-    @Test
-    void register_WithMinimumData_ShouldCreateUser() {
-        // Given: создаем DTO только с обязательными полями
+    void register_WithAdminRole_ShouldSaveWithAdminRole() {
+        // Given
         Register register = new Register();
-        register.setUsername("minimal@example.com");
-        register.setPassword(TEST_PASSWORD);
-        register.setRole(ru.skypro.homework.dto.Role.USER);
-        // firstName, lastName, phone могут быть null
+        register.setUsername("admin@example.com");
+        register.setPassword("adminpass");
+        register.setFirstName("Admin");
+        register.setLastName("User");
+        register.setPhone("+74444444444");
+        register.setRole(Role.ADMIN); // Передаем строку "ADMIN"
 
-        // When: регистрируем пользователя
+        // When
         boolean result = authService.register(register);
 
-        // Then: регистрация должна быть успешной
-        assertTrue(result, "Регистрация должна быть успешной с минимальными данными");
-        assertTrue(userDetailsManager.userExists("minimal@example.com"),
-                "Пользователь должен быть создан в системе");
-    }
+        // Then
+        assertTrue(result);
 
-    /**
-     * Тест граничного случая: пустой пароль
-     */
-    @Test
-    void register_WithEmptyPassword_ShouldCreateUser() {
-        // Given: создаем DTO с пустым паролем
-        Register register = createRegisterDto("empty@example.com", "",
-                "Empty", "Password", "+79990000000", ru.skypro.homework.dto.Role.USER);
-
-        // When: регистрируем пользователя
-        boolean result = authService.register(register);
-
-        // Then: регистрация должна быть успешной (пустой пароль допустим)
-        assertTrue(result, "Регистрация должна быть успешной даже с пустым паролем");
-        assertTrue(userDetailsManager.userExists("empty@example.com"),
-                "Пользователь должен быть создан в системе");
-    }
-
-    /**
-     * Тест регистрации пользователя без дополнительных полей (только username, password, role)
-     */
-    @Test
-    void register_WithOnlyRequiredFields_ShouldCreateUser() {
-        // Given: создаем DTO только с обязательными полями
-        Register register = new Register();
-        register.setUsername("requiredonly@example.com");
-        register.setPassword("requiredpass");
-        register.setRole(ru.skypro.homework.dto.Role.USER);
-
-        // When: регистрируем пользователя
-        boolean result = authService.register(register);
-
-        // Then: регистрация должна быть успешной
-        assertTrue(result, "Регистрация должна быть успешной только с обязательными полями");
-        assertTrue(userDetailsManager.userExists("requiredonly@example.com"),
-                "Пользователь должен быть создан в системе");
-
-        // And: пользователь должен аутентифицироваться
-        boolean loginResult = authService.login("requiredonly@example.com", "requiredpass");
-        assertTrue(loginResult, "Пользователь должен успешно аутентифицироваться");
+        Optional<UserEntity> savedUser = userRepository.findByEmail("admin@example.com");
+        assertTrue(savedUser.isPresent());
+        assertEquals(Role.ADMIN, savedUser.get().getRole()); // Проверяем, что роль сохранилась как ADMIN
     }
 }

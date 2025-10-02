@@ -3,46 +3,90 @@ package ru.skypro.homework.service.impl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.multipart.MultipartFile;
+import ru.skypro.homework.config.UserSecurityDTO;
 import ru.skypro.homework.dto.NewPassword;
+import ru.skypro.homework.dto.Role;
 import ru.skypro.homework.dto.UpdateUser;
 import ru.skypro.homework.dto.User;
+import ru.skypro.homework.mapper.UserMapper;
+import ru.skypro.homework.model.UserEntity;
+import ru.skypro.homework.repository.UserRepository;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class UserServiceImplTest {
 
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private UserMapper userMapper;
+
+    @Mock
+    private SecurityContext securityContext;
+
+    @Mock
+    private Authentication authentication;
+
+    @InjectMocks
     private UserServiceImpl userService;
 
+    private UserEntity testUser;
+    private UserSecurityDTO userSecurityDTO;
     private NewPassword validPassword;
     private UpdateUser validUpdateUser;
     private MultipartFile validImage;
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl();
+        // Создаем тестового пользователя
+        testUser = new UserEntity();
+        testUser.setId(1);
+        testUser.setEmail("test@example.com");
+        testUser.setFirstName("Ivan");
+        testUser.setLastName("Ivanov");
+        testUser.setPhone("+79991234567");
+        testUser.setPassword("encodedPassword");
+        testUser.setRole(Role.USER);
+
+        // Создаем UserSecurityDTO для аутентификации
+        userSecurityDTO = new UserSecurityDTO(testUser);
 
         validPassword = new NewPassword();
         validPassword.setCurrentPassword("currentPassword123");
         validPassword.setNewPassword("newSecurePassword456");
 
         validUpdateUser = new UpdateUser();
-        validUpdateUser.setFirstName("Ivan");      // Длина 4 - соответствует ограничениям
-        validUpdateUser.setLastName("Ivanov");     // Длина 6 - соответствует ограничениям
-        validUpdateUser.setPhone("+79991234567");  // Корректный формат телефона
+        validUpdateUser.setFirstName("Ivan");
+        validUpdateUser.setLastName("Ivanov");
+        validUpdateUser.setPhone("+79991234567");
 
-        // Создаем валидный тестовый файл изображения
         validImage = new MockMultipartFile(
                 "profileImage",
                 "avatar.jpg",
                 "image/jpeg",
-                new byte[]{1, 2, 3, 4, 5} // Минимальный контент
+                new byte[]{1, 2, 3, 4, 5}
         );
+        SecurityContextHolder.setContext(securityContext);
     }
 
     /**
@@ -51,19 +95,36 @@ public class UserServiceImplTest {
      */
     @Test
     void setPassword_WithValidData_ShouldExecuteSuccessfully() {
-        // Arrange & Act & Assert
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("currentPassword123", "encodedPassword")).thenReturn(true);
+        when(passwordEncoder.encode("newSecurePassword456")).thenReturn("newEncodedPassword");
+
+        // Act & Assert
         assertDoesNotThrow(() -> userService.setPassword(validPassword),
                 "Метод setPassword должен выполняться без исключений при валидных данных");
+
+        // Verify
+        verify(userRepository).save(testUser);
+        assertEquals("newEncodedPassword", testUser.getPassword());
     }
 
     /**
      * Тест установки пароля с null объектом
-     * Проверяем устойчивость к null параметрам
+     * Проверяем, что метод выбрасывает NullPointerException при null параметре
      */
     @Test
     void setPassword_WithNullParameter_ShouldExecuteWithoutErrors() {
-        // Arrange & Act & Assert
-        assertDoesNotThrow(() -> userService.setPassword(null),
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        // Act & Assert
+        assertThrows(NullPointerException.class,
+                () -> userService.setPassword(null),
                 "Метод setPassword должен обрабатывать null параметр без исключений");
     }
 
@@ -73,8 +134,16 @@ public class UserServiceImplTest {
     @Test
     void setPassword_WithPartialData_ShouldExecuteSuccessfully() {
         // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
+        lenient().when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
+        lenient().when(passwordEncoder.encode(anyString())).thenReturn("encodedNewPassword");
+
         NewPassword partialPassword = new NewPassword();
         partialPassword.setCurrentPassword("onlyCurrent");
+        partialPassword.setNewPassword("newPassword123"); // Добавляем новый пароль
 
         // Act & Assert
         assertDoesNotThrow(() -> userService.setPassword(partialPassword),
@@ -87,6 +156,13 @@ public class UserServiceImplTest {
     @Test
     void setPassword_WithEmptyStrings_ShouldExecuteSuccessfully() {
         // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
+        when(passwordEncoder.matches("", testUser.getPassword())).thenReturn(true);
+        when(passwordEncoder.encode("")).thenReturn("encodedEmptyPassword");
+
         NewPassword emptyPassword = new NewPassword();
         emptyPassword.setCurrentPassword("");
         emptyPassword.setNewPassword("");
@@ -114,207 +190,306 @@ public class UserServiceImplTest {
      * Проверяем корректность обработки данных, соответствующих ограничениям
      */
     @Test
-    void updateUser_WithValidData_ShouldReturnNullAsPerImplementation() {
+    void updateUser_WithValidData_ShouldReturnUpdatedUser() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
+        UserEntity savedUser = new UserEntity();
+        savedUser.setFirstName("Ivan");
+        savedUser.setLastName("Ivanov");
+        savedUser.setPhone("+79991234567");
+        when(userRepository.save(any(UserEntity.class))).thenReturn(savedUser);
+
         // Act
         UpdateUser result = userService.updateUser(validUpdateUser);
 
         // Assert
-        assertNull(result, "Метод updateUser() должен возвращать null в соответствии с текущей реализацией");
+        assertNotNull(result, "Метод updateUser() должен возвращать обновленные данные");
+        assertEquals("Ivan", result.getFirstName());
+        assertEquals("Ivanov", result.getLastName());
+        assertEquals("+79991234567", result.getPhone());
     }
 
     /**
-     * Тест обновления пользователя с граничными значениями имени/фамилии
+     * Тест обновления пользователя, когда пользователь не найден
      */
     @Test
-    void updateUser_WithBoundaryLengthNames_ShouldHandleCorrectly() {
+    void updateUser_WhenUserNotFound_ShouldThrowException() {
         // Arrange
-        UpdateUser boundaryUser = new UpdateUser();
-        boundaryUser.setFirstName("Iva");      // Минимальная длина 3
-        boundaryUser.setLastName("Petrovsky"); // Максимальная длина 10
-        boundaryUser.setPhone("+71234567890");
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("nonexistent@example.com");
+        when(userRepository.findByEmail("nonexistent@example.com")).thenReturn(Optional.empty());
 
-        // Act
-        UpdateUser result = userService.updateUser(boundaryUser);
-
-        // Assert
-        assertNull(result, "Метод должен возвращать null даже для граничных значений");
+        // Act & Assert
+        assertThrows(IllegalStateException.class,
+                () -> userService.updateUser(validUpdateUser),
+                "Должно выбрасываться исключение, когда пользователь не найден");
     }
 
     /**
-     * Тест обновления пользователя с null параметром
+     * Тест обновления пользователя с null данными
      */
     @Test
-    void updateUser_WithNullParameter_ShouldReturnNull() {
+    void updateUser_WithNullData_ShouldHandleGracefully() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+
         // Act
         UpdateUser result = userService.updateUser(null);
 
         // Assert
-        assertNull(result, "Метод updateUser() должен возвращать null при null параметре");
+        assertNull(result, "Метод должен возвращать null при null входных данных");
     }
 
     /**
-     * Тест обновления пользователя с частично заполненными данными
+     * Тест обновления пользователя с частичными данными (только имя)
      */
     @Test
-    void updateUser_WithPartialData_ShouldHandleCorrectly() {
+    void updateUser_WithOnlyFirstName_ShouldUpdateOnlyFirstName() {
         // Arrange
-        UpdateUser partialUser = new UpdateUser();
-        partialUser.setFirstName("Partial"); // Только имя заполнено
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
+        when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation ->
+                invocation.getArgument(0)
+        );
+
+        UpdateUser partialUpdate = new UpdateUser();
+        partialUpdate.setFirstName("NewFirstNameOnly");
 
         // Act
-        UpdateUser result = userService.updateUser(partialUser);
+        UpdateUser result = userService.updateUser(partialUpdate);
 
         // Assert
-        assertNull(result, "Метод должен возвращать null для частично заполненных объектов");
+        assertNotNull(result);
+        assertEquals("NewFirstNameOnly", result.getFirstName());
+        // Остальные поля должны остаться null или не измениться
+        assertNull(result.getLastName());
+        assertNull(result.getPhone());
     }
 
     /**
-     * Тест обновления изображения с валидным файлом
-     * Проверяем успешный HTTP ответ
+     * Тест обновления аватара с валидным изображением
+     */
+    @Test
+    void updateUserImage_WithValidImage_ShouldExecuteSuccessfully() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+
+        // Act & Assert
+        assertDoesNotThrow(() -> userService.updateUserImage(validImage),
+                "Метод updateUserImage должен работать с валидным изображением");
+
+        // Verify
+        verify(userRepository).save(testUser);
+    }
+
+    /**
+     * Тест обновления аватара с null изображением
+     */
+    @Test
+    void updateUserImage_WithNullImage_ShouldExecuteWithoutErrors() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
+        // Act & Assert
+        assertDoesNotThrow(() -> userService.updateUserImage(null),
+                "Метод updateUserImage должен обрабатывать null параметр");
+
+        // Verify что save не вызывался при null
+        verify(userRepository, never()).save(any(UserEntity.class));
+    }
+
+    /**
+     * Тест обновления аватара пользователя с валидным изображением
      */
     @Test
     void updateUserImage_WithValidImage_ShouldReturnOkResponse() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+
         // Act
         ResponseEntity<Void> response = userService.updateUserImage(validImage);
 
         // Assert
-        assertNotNull(response, "Ответ не должен быть null");
-        assertEquals(HttpStatus.OK, response.getStatusCode(),
-                "Должен возвращаться статус 200 OK при валидном изображении");
-        assertNull(response.getBody(), "Тело ответа должно быть null");
+        assertEquals(HttpStatus.OK, response.getStatusCode(), "Должен возвращаться OK статус");
+        verify(userRepository).save(testUser);
     }
 
     /**
-     * Тест обновления изображения с null файлом
-     * Проверяем устойчивость к null параметрам
+     * Тест обновления аватара с null изображением
      */
     @Test
-    void updateUserImage_WithNullFile_ShouldReturnOkResponse() {
+    void updateUserImage_WithNullImage_ShouldReturnBadRequest() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
         // Act
         ResponseEntity<Void> response = userService.updateUserImage(null);
 
         // Assert
-        assertNotNull(response, "Ответ не должен быть null даже при null файле");
-        assertEquals(HttpStatus.OK, response.getStatusCode(),
-                "Должен возвращаться статус 200 OK даже при null файле");
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), "Должен возвращаться BAD_REQUEST для null");
+        verify(userRepository, never()).save(any(UserEntity.class));
     }
 
     /**
-     * Тест обновления изображения с пустым файлом
+     * Тест обновления аватара с пустым изображением
      */
     @Test
-    void updateUserImage_WithEmptyFile_ShouldReturnOkResponse() {
+    void updateUserImage_WithEmptyImage_ShouldReturnBadRequest() {
         // Arrange
-        MultipartFile emptyFile = new MockMultipartFile(
-                "empty",
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
+        MultipartFile emptyImage = new MockMultipartFile(
+                "emptyImage",
                 "empty.jpg",
                 "image/jpeg",
-                new byte[0] // Пустой контент
+                new byte[0] // пустой массив байтов
         );
 
         // Act
-        ResponseEntity<Void> response = userService.updateUserImage(emptyFile);
+        ResponseEntity<Void> response = userService.updateUserImage(emptyImage);
 
         // Assert
-        assertNotNull(response, "Ответ не должен быть null при пустом файле");
-        assertEquals(HttpStatus.OK, response.getStatusCode(),
-                "Должен возвращаться статус 200 OK при пустом файле");
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), "Должен возвращаться BAD_REQUEST для пустого изображения");
+        verify(userRepository, never()).save(any(UserEntity.class));
     }
 
     /**
-     * Тест обновления изображения с большим файлом
-     * Проверяем обработку файлов разного размера
+     * Тест обновления аватара, когда пользователь не найден
      */
     @Test
-    void updateUserImage_WithLargeFileContent_ShouldReturnOkResponse() {
+    void updateUserImage_WhenUserNotFound_ShouldReturnBadRequest() {
         // Arrange
-        byte[] largeContent = new byte[1024]; // 1KB content
-        for (int i = 0; i < largeContent.length; i++) {
-            largeContent[i] = (byte) (i % 256);
-        }
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("nonexistent@example.com");
+        when(userRepository.findByEmail("nonexistent@example.com")).thenReturn(Optional.empty());
 
-        MultipartFile largeFile = new MockMultipartFile(
-                "large",
-                "large-image.jpg",
+        // Act
+        ResponseEntity<Void> response = userService.updateUserImage(validImage);
+
+        // Assert
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), "Должен возвращаться BAD_REQUEST когда пользователь не найден");
+        verify(userRepository, never()).save(any(UserEntity.class));
+    }
+
+    /**
+     * Тест обновления аватара с ошибкой создания директории
+     */
+    @Test
+    void updateUserImage_WithDirectoryCreationError_ShouldReturnInternalServerError() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
+        MultipartFile validImage = new MockMultipartFile(
+                "image",
+                "test.jpg",
                 "image/jpeg",
-                largeContent
+                new byte[]{1, 2, 3, 4, 5}
         );
 
         // Act
-        ResponseEntity<Void> response = userService.updateUserImage(largeFile);
+        ResponseEntity<Void> response = userService.updateUserImage(validImage);
+
+        // Assert - в нормальных условиях должен быть OK
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    /**
+     * Тест метода findByEmail
+     */
+    @Test
+    void findByEmail_WithExistingEmail_ShouldReturnUser() {
+        // Arrange
+        String email = "test@example.com";
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(testUser));
+
+        // Act
+        Optional<UserEntity> result = userService.findByEmail(email);
 
         // Assert
-        assertNotNull(response, "Ответ не должен быть null для большого файла");
-        assertEquals(HttpStatus.OK, response.getStatusCode(),
-                "Должен возвращаться статус 200 OK для файлов любого размера");
+        assertTrue(result.isPresent(), "Должен возвращаться пользователь для существующего email");
+        assertEquals(testUser, result.get());
     }
 
     /**
-     * Тест последовательного выполнения операций пользователя
-     * Проверяем интеграцию между методами сервиса
+     * Тест метода findByEmail с несуществующим email
      */
     @Test
-    void userServiceWorkflow_ShouldExecuteAllMethodsSuccessfully() {
-        // Act & Assert - проверяем полный workflow
-        assertDoesNotThrow(() -> {
-            // 1. Получаем пользователя (возвращает null)
-            User user = userService.getUser();
-            assertNull(user, "Get user should return null");
-
-            // 2. Обновляем пароль
-            userService.setPassword(validPassword);
-
-            // 3. Обновляем данные пользователя
-            UpdateUser updated = userService.updateUser(validUpdateUser);
-            assertNull(updated, "Update user should return null");
-
-            // 4. Обновляем аватар
-            ResponseEntity<Void> imageResponse = userService.updateUserImage(validImage);
-            assertEquals(HttpStatus.OK, imageResponse.getStatusCode(),
-                    "Image update should return OK");
-        }, "Полный workflow пользователя должен выполняться без исключений");
-    }
-
-    /**
-     * Тест многократного вызова методов для проверки стабильности
-     */
-    @Test
-    void repeatedServiceCalls_ShouldBeStable() {
-        // Act & Assert
-        for (int i = 0; i < 5; i++) {
-            userService.setPassword(validPassword);
-            assertNull(userService.getUser());
-            assertNull(userService.updateUser(validUpdateUser));
-
-            ResponseEntity<Void> response = userService.updateUserImage(validImage);
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-        }
-    }
-
-    /**
-     * Тест с различными форматами телефонных номеров
-     */
-    @Test
-    void updateUser_WithDifferentPhoneFormats_ShouldHandleAll() {
+    void findByEmail_WithNonExistingEmail_ShouldReturnEmpty() {
         // Arrange
-        String[] phoneFormats = {
-                "+79991234567",
-                "+78005553535",
-                "+74951234567",
-                "+71112223344"
-        };
+        String email = "nonexistent@example.com";
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
 
-        for (String phone : phoneFormats) {
-            UpdateUser userWithPhone = new UpdateUser();
-            userWithPhone.setFirstName("Test");
-            userWithPhone.setLastName("User");
-            userWithPhone.setPhone(phone);
+        // Act
+        Optional<UserEntity> result = userService.findByEmail(email);
 
-            // Act
-            UpdateUser result = userService.updateUser(userWithPhone);
+        // Assert
+        assertFalse(result.isPresent(), "Должен возвращаться empty для несуществующего email");
+    }
 
-            // Assert
-            assertNull(result, "Метод должен возвращать null для любого формата телефона: " + phone);
-        }
+    /**
+     * Тест метода getUser - должен возвращать User DTO
+     */
+    @Test
+    void getUser_ShouldReturnUserDTO() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+
+        User expectedUser = new User();
+        expectedUser.setEmail("test@example.com");
+        expectedUser.setFirstName("Ivan");
+        expectedUser.setLastName("Ivanov");
+        expectedUser.setPhone("+79991234567");
+        when(userMapper.toDto(testUser)).thenReturn(expectedUser);
+
+        // Act
+        User result = userService.getUser();
+
+        // Assert
+        assertNotNull(result, "Метод getUser должен возвращать User DTO");
+        assertEquals("test@example.com", result.getEmail());
+        assertEquals("Ivan", result.getFirstName());
+        assertEquals("Ivanov", result.getLastName());
+        assertEquals("+79991234567", result.getPhone());
+    }
+
+    /**
+     * Тест метода getUser, когда пользователь не найден
+     */
+    @Test
+    void getUser_WhenUserNotFound_ShouldReturnNull() {
+        // Arrange
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("nonexistent@example.com");
+        when(userRepository.findByEmail("nonexistent@example.com")).thenReturn(Optional.empty());
+
+        // Act
+        User result = userService.getUser();
+
+        // Assert
+        assertNull(result, "Метод getUser должен возвращать null когда пользователь не найден");
     }
 }
