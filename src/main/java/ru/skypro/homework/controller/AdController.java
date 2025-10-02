@@ -15,7 +15,6 @@ import ru.skypro.homework.dto.*;
 import ru.skypro.homework.service.AdService;
 
 import javax.validation.Valid;
-import java.util.List;
 
 @Slf4j
 @CrossOrigin(value = "http://localhost:3000")
@@ -27,8 +26,8 @@ public class AdController {
     private final AdService adService;
 
     @GetMapping
-    public List<Ad> getAllAds() {
-        return adService.getAllAds(); // Возвращаем пустой список объявлений
+    public Ads getAllAds() {
+        return adService.getAllAds();
     }
 
     /**

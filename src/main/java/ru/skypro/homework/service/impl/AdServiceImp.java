@@ -68,11 +68,19 @@ public class AdServiceImp implements AdService {
     }
 
     @Override
-    public List<Ad> getAllAds() {
-        return adRepository.findAll().stream().map(adMapper::toDto).collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public Ads getAllAds() {
+        List<Ad> list = adRepository.findAll().stream()
+                .map(adMapper::toDto)
+                .collect(Collectors.toList());
+        Ads wrapper = new Ads();
+        wrapper.setResults(list);
+        wrapper.setCount(list.size());
+        return wrapper;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ExtendedAd getAdById(Integer id) {
         AdEntity entity = adRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Объявление не найдено"));
@@ -87,9 +95,7 @@ public class AdServiceImp implements AdService {
         if (!canModify(entity, current)) {
             throw new AccessDeniedException("Недостаточно прав для удаления объявления");
         }
-        // Удаляем связанные комментарии
-        commentRepository.findAllByAd_Id(id).forEach(c -> commentRepository.deleteById(c.getId()));
-        // Удаляем привязанное изображение (если не переиспользуется где-то ещё)
+        // Удалять комментарии вручную не требуется: FK ON DELETE CASCADE в таблице comments уже очищает их.
         if (entity.getImage() != null) {
             imageService.delete(entity.getImage().getId());
         }
@@ -120,6 +126,7 @@ public class AdServiceImp implements AdService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Ads getUserAds() {
         UserEntity current = getCurrentUser();
         if (current == null) {
@@ -160,6 +167,7 @@ public class AdServiceImp implements AdService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Comments getAdComments(Integer adId) {
         adRepository.findById(adId).orElseThrow(() -> new IllegalArgumentException("Объявление не найдено"));
         List<CommentEntity> list = commentRepository.findAllByAd_Id(adId);
