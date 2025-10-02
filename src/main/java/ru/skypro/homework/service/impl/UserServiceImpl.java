@@ -1,5 +1,6 @@
 package ru.skypro.homework.service.impl;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,6 +28,9 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+
+    @Value("${images.upload.dir:images}")
+    private String imagesDir;
 
     public UserServiceImpl(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
@@ -79,7 +83,7 @@ public class UserServiceImpl implements UserService {
             String original = image.getOriginalFilename();
             String ext = original != null && original.contains(".") ? original.substring(original.lastIndexOf('.')) : "";
             String fileName = "user_" + current.getId() + "_" + UUID.randomUUID() + ext;
-            Path dir = Paths.get("images");
+            Path dir = Paths.get(imagesDir);
             if (!Files.exists(dir)) {
                 Files.createDirectories(dir);
             }

@@ -22,7 +22,8 @@ public class WebSecurityConfig {
             "/v3/api-docs/**",
             "/webjars/**",
             "/login",
-            "/register"
+            "/register",
+            "/images/**"
     };
 
     private final UserDetailsService userDetailsService;
