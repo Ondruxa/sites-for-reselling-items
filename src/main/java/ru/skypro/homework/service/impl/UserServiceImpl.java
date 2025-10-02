@@ -106,14 +106,12 @@ public class UserServiceImpl implements UserService {
         if (current == null) {
             throw new IllegalStateException("Текущий пользователь не найден");
         }
-        // Собираем изображения объявлений пользователя и удаляем их (distinct по id)
         adRepository.findAllByAuthor_Id(current.getId()).stream()
                 .map(AdEntity::getImage)
                 .filter(java.util.Objects::nonNull)
                 .map(ImageEntity::getId)
                 .distinct()
                 .forEach(imageService::delete);
-        // Удаляем аватар пользователя
         if (current.getImage() != null) {
             imageService.delete(current.getImage().getId());
         }

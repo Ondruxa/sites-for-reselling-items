@@ -27,19 +27,19 @@ public class UserController {
     @Operation(summary = "Установка нового пароля пользователя")
     @PostMapping("/set_password")
     public void setPassword(@RequestBody NewPassword newPassword) {
-        userService.setPassword(newPassword); // Выполняем действие через сервис
+        userService.setPassword(newPassword);
     }
 
     @Operation(summary = "Получение профиля текущего пользователя")
     @GetMapping("/me")
     public User getUser() {
-        return userService.getUser(); // Просто получаем пользователя из сервиса
+        return userService.getUser();
     }
 
     @Operation(summary = "Обновление профиля пользователя")
     @PatchMapping("/me")
     public UpdateUser updateUser(@RequestBody UpdateUser updateUser) {
-        return userService.updateUser(updateUser); // Передача обновления в сервис
+        return userService.updateUser(updateUser);
     }
 
     @Operation(summary = "Обновление аватара авторизованного пользователя",

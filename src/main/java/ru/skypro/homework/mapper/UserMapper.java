@@ -34,7 +34,7 @@ public class UserMapper {
         if (register == null) return null;
         UserEntity entity = new UserEntity();
         entity.setEmail(register.getUsername());
-        entity.setPassword(register.getPassword()); // пароль зашифруется вне маппера
+        entity.setPassword(register.getPassword());
         entity.setFirstName(register.getFirstName());
         entity.setLastName(register.getLastName());
         entity.setPhone(register.getPhone());

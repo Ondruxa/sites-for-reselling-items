@@ -7,13 +7,12 @@ import java.util.List;
 
 public interface AdService {
     void addAd(CreateOrUpdateAd properties, MultipartFile image);
-    // Возвращаем объект-обёртку Ads (count + results)
     Ads getAllAds();
     ExtendedAd getAdById(Integer id);
     void removeAd(Integer id);
     Ad updateAd(CreateOrUpdateAd updatedData, Integer id);
     Ads getUserAds();
-    byte[] updateImage(Integer id, MultipartFile file);
+    Ad updateImage(Integer id, MultipartFile file);
     Comments getAdComments(Integer adId);
     Comment addComment(CreateOrUpdateComment commentData, Integer adId);
     Comment updateComment(CreateOrUpdateComment updatedData, Integer adId, Integer commentId);

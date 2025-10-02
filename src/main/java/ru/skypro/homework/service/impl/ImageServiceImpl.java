@@ -1,7 +1,5 @@
 package ru.skypro.homework.service.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -18,8 +16,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -29,15 +25,12 @@ import java.util.UUID;
 @Service
 public class ImageServiceImpl implements ImageService {
 
-    private static final Logger log = LoggerFactory.getLogger(ImageServiceImpl.class);
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ImageServiceImpl.class);
 
     private final ImageRepository imageRepository;
 
     @Value("${images.upload.dir:images}")
     private String imagesDir;
-
-    @Value("${images.storage:fs}")
-    private String storageMode; // fs | db
 
     public ImageServiceImpl(ImageRepository imageRepository) {
         this.imageRepository = imageRepository;
@@ -57,29 +50,20 @@ public class ImageServiceImpl implements ImageService {
         } catch (IOException e) {
             throw new RuntimeException("Не удалось прочитать содержимое файла", e);
         }
+        try {
+            Path dir = Paths.get(imagesDir);
+            if (!Files.exists(dir)) {
+                Files.createDirectories(dir);
+            }
+            Files.write(dir.resolve(id), bytes);
+        } catch (IOException e) {
+            throw new RuntimeException("Ошибка сохранения файла на диск", e);
+        }
         ImageEntity entity = new ImageEntity();
         entity.setId(id);
         entity.setContentType(file.getContentType());
         entity.setSize(file.getSize());
         entity.setCreatedAt(Instant.now().toEpochMilli());
-        // В fs режиме не храним бинарные данные в БД
-        if (isDbMode()) {
-            entity.setData(bytes);
-            entity.setChecksum(calcChecksum(bytes));
-        } else {
-            entity.setData(null);
-            entity.setChecksum(calcChecksum(bytes)); // Можно хранить для дедупликации/контроля
-            // Сохранение в файловой системе
-            try {
-                Path dir = Paths.get(imagesDir);
-                if (!Files.exists(dir)) {
-                    Files.createDirectories(dir);
-                }
-                Files.write(dir.resolve(id), bytes);
-            } catch (IOException e) {
-                throw new RuntimeException("Ошибка сохранения файла на диск", e);
-            }
-        }
         return imageRepository.save(entity);
     }
 
@@ -88,28 +72,20 @@ public class ImageServiceImpl implements ImageService {
         if (id == null) throw new IllegalArgumentException("ID изображения не указан");
         Optional<ImageEntity> entityOpt = imageRepository.findById(id);
         ImageEntity entity = entityOpt.orElseThrow(() -> new IllegalArgumentException("Изображение не найдено"));
-        byte[] data;
-        String type = entity.getContentType();
-        if (isDbMode()) {
-            data = entity.getData();
-            if (data == null) {
-                throw new IllegalStateException("Пустые бинарные данные в режиме db для id=" + id);
+        try {
+            Path path = Paths.get(imagesDir).resolve(id);
+            if (!Files.exists(path)) {
+                throw new IllegalArgumentException("Файл изображения не найден");
             }
-        } else {
-            try {
-                Path path = Paths.get(imagesDir).resolve(id);
-                if (!Files.exists(path)) {
-                    throw new IllegalArgumentException("Файл изображения не найден");
-                }
-                data = Files.readAllBytes(path);
-                if (type == null) {
-                    type = Files.probeContentType(path);
-                }
-            } catch (IOException e) {
-                throw new RuntimeException("Ошибка чтения изображения", e);
+            byte[] data = Files.readAllBytes(path);
+            String type = entity.getContentType();
+            if (type == null) {
+                type = Files.probeContentType(path);
             }
+            return new ImageContent(data, type != null ? type : "application/octet-stream");
+        } catch (IOException e) {
+            throw new RuntimeException("Ошибка чтения изображения", e);
         }
-        return new ImageContent(data, type != null ? type : "application/octet-stream");
     }
 
     @Override
@@ -142,23 +118,16 @@ public class ImageServiceImpl implements ImageService {
     public void delete(String id) {
         if (id == null || id.isBlank()) return;
         try {
-            if (!imageRepository.existsById(id)) return; // нет метаданных — нечего удалять
-            if (!isDbMode()) {
-                Path path = Paths.get(imagesDir).resolve(id);
-                if (Files.exists(path)) {
-                    try { Files.delete(path); }
-                    catch (IOException e) { log.warn("Не удалось удалить файл {}: {}", id, e.getMessage()); }
-                }
+            if (!imageRepository.existsById(id)) return;
+            Path path = Paths.get(imagesDir).resolve(id);
+            if (Files.exists(path)) {
+                try { Files.delete(path); }
+                catch (IOException e) { log.warn("Не удалось удалить файл {}: {}", id, e.getMessage()); }
             }
             imageRepository.deleteById(id);
         } catch (Exception e) {
             log.warn("Ошибка при удалении изображения {}: {}", id, e.getMessage());
         }
-    }
-
-    @Override
-    public boolean isDbMode() {
-        return "db".equalsIgnoreCase(storageMode);
     }
 
     private String guessContentType(String id) {
@@ -168,19 +137,5 @@ public class ImageServiceImpl implements ImageService {
         if (lower.endsWith(".gif")) return MediaType.IMAGE_GIF_VALUE;
         if (lower.endsWith(".webp")) return "image/webp";
         return null;
-    }
-
-    private String calcChecksum(byte[] data) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(data);
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            return null; // не критично
-        }
     }
 }

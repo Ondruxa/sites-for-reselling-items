@@ -95,7 +95,6 @@ public class AdServiceImp implements AdService {
         if (!canModify(entity, current)) {
             throw new AccessDeniedException("Недостаточно прав для удаления объявления");
         }
-        // Удалять комментарии вручную не требуется: FK ON DELETE CASCADE в таблице comments уже очищает их.
         if (entity.getImage() != null) {
             imageService.delete(entity.getImage().getId());
         }
@@ -118,7 +117,6 @@ public class AdServiceImp implements AdService {
         adMapper.updateEntity(updatedData, entity);
         adRepository.save(entity);
         Ad dto = adMapper.toDto(entity);
-        // Если по какой-то причине image отсутствует (фронт может ожидать строку) — вернуть пустую строку вместо null
         if (dto.getImage() == null) {
             dto.setImage("");
         }
@@ -142,7 +140,7 @@ public class AdServiceImp implements AdService {
     }
 
     @Override
-    public byte[] updateImage(Integer id, MultipartFile file) {
+    public Ad updateImage(Integer id, MultipartFile file) {
         AdEntity entity = adRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Объявление не найдено"));
         UserEntity current = getCurrentUser();
@@ -159,11 +157,7 @@ public class AdServiceImp implements AdService {
         if (oldImage != null) {
             imageService.delete(oldImage.getId());
         }
-        try {
-            return file.getBytes();
-        } catch (java.io.IOException e) {
-            throw new RuntimeException("Ошибка чтения загруженного файла", e);
-        }
+        return adMapper.toDto(entity);
     }
 
     @Override

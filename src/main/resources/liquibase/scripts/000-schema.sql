@@ -71,3 +71,7 @@ ALTER TABLE users ADD CONSTRAINT fk_users_image FOREIGN KEY (image_id) REFERENCE
 --changeset vladimirsa:012-drop-old-image-columns
 ALTER TABLE ads DROP COLUMN image;
 ALTER TABLE users DROP COLUMN image;
+
+--changeset vladimirsa:014-drop-unused-image-columns
+ALTER TABLE images DROP COLUMN IF EXISTS data;
+ALTER TABLE images DROP COLUMN IF EXISTS checksum;

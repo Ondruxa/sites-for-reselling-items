@@ -30,12 +30,6 @@ public class AdController {
         return adService.getAllAds();
     }
 
-    /**
-     * Добавляет новое объявление с изображением.
-     *
-     * @param properties Объект с информацией об объявлении.
-     * @param image Изображение, прикрепленное к объявлению.
-     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> addAd(
             @RequestPart("properties") CreateOrUpdateAd properties,
@@ -109,16 +103,15 @@ public class AdController {
     @Operation(summary = "Обновление картинки объявления",
             security = {@SecurityRequirement(name = "BearerAuth")},
             responses = {
-                    @ApiResponse(responseCode = "200", description = "Картинка обновлена", content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/octet-stream")),
+                    @ApiResponse(responseCode = "200", description = "Картинка обновлена", content = @io.swagger.v3.oas.annotations.media.Content(schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = Ad.class))),
                     @ApiResponse(responseCode = "401", description = "Unauthorized"),
                     @ApiResponse(responseCode = "403", description = "Forbidden"),
                     @ApiResponse(responseCode = "404", description = "Not Found")
             })
     @PatchMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<byte[]> updateImage(
+    public ResponseEntity<Ad> updateImage(
             @Parameter(description = "Идентификатор объявления", example = "1", required = true) @PathVariable Integer id,
             @RequestParam("image") MultipartFile file) {
-        // Заглушка: просто возвращаем пустой массив байтов
         return ResponseEntity.ok(adService.updateImage(id, file));
     }
 

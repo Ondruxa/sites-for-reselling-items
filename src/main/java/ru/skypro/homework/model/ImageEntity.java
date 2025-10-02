@@ -13,11 +13,7 @@ import javax.persistence.*;
 @Table(name = "images")
 public class ImageEntity {
     @Id
-    private String id; // UUID / file name
-
-    @Column(name = "data")
-    @Basic(fetch = FetchType.LAZY)
-    private byte[] data; // null в fs режиме
+    private String id;
 
     @Column(name = "content_type", length = 120)
     private String contentType;
@@ -27,7 +23,4 @@ public class ImageEntity {
 
     @Column(name = "created_at")
     private Long createdAt;
-
-    @Column(name = "checksum", length = 64)
-    private String checksum; // SHA-256 хэш (hex)
 }

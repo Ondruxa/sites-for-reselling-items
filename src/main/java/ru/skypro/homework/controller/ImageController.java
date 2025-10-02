@@ -15,7 +15,6 @@ public class ImageController {
 
     @GetMapping("/images/{id:.+}")
     public ResponseEntity<byte[]> getImage(@PathVariable String id) {
-        // Вся логика формирования ответа перенесена в ImageService
         return imageService.getImage(id);
     }
 }
