@@ -5,6 +5,7 @@ import ru.skypro.homework.dto.Ad;
 import ru.skypro.homework.dto.CreateOrUpdateAd;
 import ru.skypro.homework.dto.ExtendedAd;
 import ru.skypro.homework.model.AdEntity;
+import ru.skypro.homework.model.ImageEntity;
 import ru.skypro.homework.model.UserEntity;
 
 import java.util.Objects;
@@ -16,7 +17,8 @@ public class AdMapper {
         Ad dto = new Ad();
         dto.setPk(entity.getId());
         dto.setAuthor(entity.getAuthor() != null ? entity.getAuthor().getId() : null);
-        dto.setImage(entity.getImage());
+        ImageEntity img = entity.getImage();
+        dto.setImage(img != null ? "/images/" + img.getId() : null);
         dto.setPrice(entity.getPrice());
         dto.setTitle(entity.getTitle());
         return dto;
@@ -34,7 +36,8 @@ public class AdMapper {
             dto.setPhone(author.getPhone());
         }
         dto.setDescription(entity.getDescription());
-        dto.setImage(entity.getImage());
+        ImageEntity img = entity.getImage();
+        dto.setImage(img != null ? "/images/" + img.getId() : null);
         dto.setPrice(entity.getPrice());
         dto.setTitle(entity.getTitle());
         return dto;
@@ -57,4 +60,3 @@ public class AdMapper {
         target.setDescription(dto.getDescription());
     }
 }
-

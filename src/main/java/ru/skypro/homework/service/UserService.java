@@ -45,4 +45,9 @@ public interface UserService {
      * @return Optional с UserEntity
      */
     Optional<UserEntity> findByEmail(String email);
+
+    /**
+     * Удаляет текущего пользователя.
+     */
+    void deleteCurrentUser();
 }
