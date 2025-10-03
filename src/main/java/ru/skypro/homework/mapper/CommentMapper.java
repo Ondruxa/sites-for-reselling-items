@@ -6,6 +6,7 @@ import ru.skypro.homework.dto.Comments;
 import ru.skypro.homework.dto.CreateOrUpdateComment;
 import ru.skypro.homework.model.AdEntity;
 import ru.skypro.homework.model.CommentEntity;
+import ru.skypro.homework.model.ImageEntity;
 import ru.skypro.homework.model.UserEntity;
 
 import java.time.Instant;
@@ -24,7 +25,8 @@ public class CommentMapper {
         if (author != null) {
             dto.setAuthor(author.getId());
             dto.setAuthorFirstName(author.getFirstName());
-            dto.setAuthorImage(author.getImage());
+            ImageEntity img = author.getImage();
+            dto.setAuthorImage(img != null ? "/images/" + img.getId() : null);
         }
         return dto;
     }
@@ -52,4 +54,3 @@ public class CommentMapper {
         target.setText(dto.getText());
     }
 }
-

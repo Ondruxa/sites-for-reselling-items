@@ -1,31 +1,30 @@
 package ru.skypro.homework.service.impl;
 
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import ru.skypro.homework.dto.*;
 import ru.skypro.homework.mapper.AdMapper;
 import ru.skypro.homework.mapper.CommentMapper;
 import ru.skypro.homework.model.AdEntity;
 import ru.skypro.homework.model.CommentEntity;
+import ru.skypro.homework.model.ImageEntity;
 import ru.skypro.homework.model.UserEntity;
 import ru.skypro.homework.repository.AdRepository;
 import ru.skypro.homework.repository.CommentRepository;
 import ru.skypro.homework.repository.UserRepository;
 import ru.skypro.homework.service.AdService;
+import ru.skypro.homework.service.ImageService;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class AdServiceImp implements AdService {
 
@@ -34,20 +33,20 @@ public class AdServiceImp implements AdService {
     private final UserRepository userRepository;
     private final AdMapper adMapper;
     private final CommentMapper commentMapper;
-
-    @Value("${images.upload.dir:images}")
-    private String imagesDir;
+    private final ImageService imageService;
 
     public AdServiceImp(AdRepository adRepository,
                         CommentRepository commentRepository,
                         UserRepository userRepository,
                         AdMapper adMapper,
-                        CommentMapper commentMapper) {
+                        CommentMapper commentMapper,
+                        ImageService imageService) {
         this.adRepository = adRepository;
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
         this.adMapper = adMapper;
         this.commentMapper = commentMapper;
+        this.imageService = imageService;
     }
 
     @Override
@@ -62,30 +61,26 @@ public class AdServiceImp implements AdService {
         AdEntity entity = adMapper.fromCreate(properties, author);
         adRepository.save(entity);
         if (image != null && !image.isEmpty()) {
-            try {
-                String original = image.getOriginalFilename();
-                String ext = original != null && original.contains(".") ? original.substring(original.lastIndexOf('.')) : "";
-                String fileName = "ad_" + entity.getId() + "_" + UUID.randomUUID() + ext;
-                Path dir = Paths.get(imagesDir);
-                if (!Files.exists(dir)) {
-                    Files.createDirectories(dir);
-                }
-                Path target = dir.resolve(fileName);
-                Files.write(target, image.getBytes());
-                entity.setImage("/images/" + fileName);
-                adRepository.save(entity);
-            } catch (IOException e) {
-                throw new RuntimeException("Ошибка сохранения изображения объявления", e);
-            }
+            ImageEntity saved = imageService.save(image, "ad_" + entity.getId());
+            entity.setImage(saved);
+            adRepository.save(entity);
         }
     }
 
     @Override
-    public List<Ad> getAllAds() {
-        return adRepository.findAll().stream().map(adMapper::toDto).collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public Ads getAllAds() {
+        List<Ad> list = adRepository.findAll().stream()
+                .map(adMapper::toDto)
+                .collect(Collectors.toList());
+        Ads wrapper = new Ads();
+        wrapper.setResults(list);
+        wrapper.setCount(list.size());
+        return wrapper;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ExtendedAd getAdById(Integer id) {
         AdEntity entity = adRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Объявление не найдено"));
@@ -100,11 +95,14 @@ public class AdServiceImp implements AdService {
         if (!canModify(entity, current)) {
             throw new AccessDeniedException("Недостаточно прав для удаления объявления");
         }
-        commentRepository.findAllByAd_Id(id).forEach(c -> commentRepository.deleteById(c.getId()));
+        if (entity.getImage() != null) {
+            imageService.delete(entity.getImage().getId());
+        }
         adRepository.delete(entity);
     }
 
     @Override
+    @Transactional
     public Ad updateAd(CreateOrUpdateAd updatedData, Integer id) {
         if (updatedData == null) {
             throw new IllegalArgumentException("Нет данных для обновления");
@@ -115,12 +113,18 @@ public class AdServiceImp implements AdService {
         if (!canModify(entity, current)) {
             throw new AccessDeniedException("Недостаточно прав для обновления объявления");
         }
+        log.debug("Обновление объявления id={} новым title='{}', price={}, desc length={}", id, updatedData.getTitle(), updatedData.getPrice(), updatedData.getDescription() != null ? updatedData.getDescription().length() : 0);
         adMapper.updateEntity(updatedData, entity);
         adRepository.save(entity);
-        return adMapper.toDto(entity);
+        Ad dto = adMapper.toDto(entity);
+        if (dto.getImage() == null) {
+            dto.setImage("");
+        }
+        return dto;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Ads getUserAds() {
         UserEntity current = getCurrentUser();
         if (current == null) {
@@ -136,7 +140,7 @@ public class AdServiceImp implements AdService {
     }
 
     @Override
-    public byte[] updateImage(Integer id, MultipartFile file) {
+    public Ad updateImage(Integer id, MultipartFile file) {
         AdEntity entity = adRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Объявление не найдено"));
         UserEntity current = getCurrentUser();
@@ -146,25 +150,18 @@ public class AdServiceImp implements AdService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Файл изображения пустой");
         }
-        try {
-            String original = file.getOriginalFilename();
-            String ext = original != null && original.contains(".") ? original.substring(original.lastIndexOf('.')) : "";
-            String fileName = "ad_" + entity.getId() + "_" + UUID.randomUUID() + ext;
-            Path dir = Paths.get(imagesDir);
-            if (!Files.exists(dir)) {
-                Files.createDirectories(dir);
-            }
-            Path target = dir.resolve(fileName);
-            Files.write(target, file.getBytes());
-            entity.setImage("/images/" + fileName);
-            adRepository.save(entity);
-            return file.getBytes();
-        } catch (IOException e) {
-            throw new RuntimeException("Ошибка сохранения изображения объявления", e);
+        ImageEntity oldImage = entity.getImage();
+        ImageEntity newImage = imageService.save(file, "ad_" + entity.getId());
+        entity.setImage(newImage);
+        adRepository.save(entity);
+        if (oldImage != null) {
+            imageService.delete(oldImage.getId());
         }
+        return adMapper.toDto(entity);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Comments getAdComments(Integer adId) {
         adRepository.findById(adId).orElseThrow(() -> new IllegalArgumentException("Объявление не найдено"));
         List<CommentEntity> list = commentRepository.findAllByAd_Id(adId);

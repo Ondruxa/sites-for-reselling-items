@@ -6,13 +6,13 @@ import ru.skypro.homework.dto.*;
 import java.util.List;
 
 public interface AdService {
-    public void addAd( CreateOrUpdateAd properties, MultipartFile image);
-    public List<Ad> getAllAds();
-    public ExtendedAd getAdById(Integer id);
-    public void removeAd(Integer id);
-    public Ad updateAd(CreateOrUpdateAd updatedData, Integer id);
-    public Ads getUserAds();
-    public byte[] updateImage(Integer id, MultipartFile file);
+    void addAd(CreateOrUpdateAd properties, MultipartFile image);
+    Ads getAllAds();
+    ExtendedAd getAdById(Integer id);
+    void removeAd(Integer id);
+    Ad updateAd(CreateOrUpdateAd updatedData, Integer id);
+    Ads getUserAds();
+    Ad updateImage(Integer id, MultipartFile file);
     Comments getAdComments(Integer adId);
     Comment addComment(CreateOrUpdateComment commentData, Integer adId);
     Comment updateComment(CreateOrUpdateComment updatedData, Integer adId, Integer commentId);
