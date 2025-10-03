@@ -15,6 +15,18 @@ import ru.skypro.homework.dto.UpdateUser;
 import ru.skypro.homework.dto.User;
 import ru.skypro.homework.service.UserService;
 
+/**
+ * Контроллер управления профилем текущего авторизованного пользователя.
+ * <p>
+ * Предоставляет операции:
+ * <ul>
+ *   <li>Смена пароля (/users/set_password)</li>
+ *   <li>Получение профиля (/users/me)</li>
+ *   <li>Частичное обновление профиля (/users/me)</li>
+ *   <li>Обновление аватара (/users/me/image)</li>
+ * </ul>
+ * </p>
+ */
 @Slf4j
 @CrossOrigin(value = "http://localhost:3000")
 @RestController
@@ -24,24 +36,42 @@ public class UserController {
 
     private final UserService userService;
 
+    /**
+     * Изменение пароля текущего пользователя.
+     * @param newPassword DTO с текущим и новым паролем
+     */
     @Operation(summary = "Установка нового пароля пользователя")
     @PostMapping("/set_password")
     public void setPassword(@RequestBody NewPassword newPassword) {
         userService.setPassword(newPassword);
     }
 
+    /**
+     * Получить профиль текущего пользователя.
+     * @return DTO {@link User}
+     */
     @Operation(summary = "Получение профиля текущего пользователя")
     @GetMapping("/me")
     public User getUser() {
         return userService.getUser();
     }
 
+    /**
+     * Обновление полей профиля (firstName, lastName, phone).
+     * @param updateUser DTO с новыми значениями
+     * @return тот же DTO (для фронта)
+     */
     @Operation(summary = "Обновление профиля пользователя")
     @PatchMapping("/me")
     public UpdateUser updateUser(@RequestBody UpdateUser updateUser) {
         return userService.updateUser(updateUser);
     }
 
+    /**
+     * Обновление аватара пользователя. Старый файл (если был) удаляется.
+     * @param image новый файл изображения (multipart)
+     * @return 200 OK или код ошибки
+     */
     @Operation(summary = "Обновление аватара авторизованного пользователя",
             security = {@SecurityRequirement(name = "BearerAuth")},
             responses = {

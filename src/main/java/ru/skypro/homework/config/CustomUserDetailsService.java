@@ -6,6 +6,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import ru.skypro.homework.service.UserService;
 
+/**
+ * Отвечает за загрузку пользователя по email (используется как username). Возвращает
+ * обёртку {@link UserSecurityDTO}, предоставляющую фреймворку данные об учётной записи и ролях.
+ */
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 

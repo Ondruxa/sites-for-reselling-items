@@ -10,8 +10,25 @@ import ru.skypro.homework.model.UserEntity;
 
 import java.util.Objects;
 
+/**
+ * Маппер для преобразования между сущностью объявления {@link ru.skypro.homework.model.AdEntity}
+ * и различными DTO: {@link ru.skypro.homework.dto.Ad}, {@link ru.skypro.homework.dto.ExtendedAd},
+ * а также входным DTO {@link ru.skypro.homework.dto.CreateOrUpdateAd}.
+ * <p>
+ * Основные задачи:
+ * <ul>
+ *   <li>Отсечение лишних внутренних полей при выдаче краткого списка.</li>
+ *   <li>Сбор расширенной информации об авторе для детальной карточки объявления.</li>
+ *   <li>Формирование новой сущности при создании (fromCreate) и обновление существующей (updateEntity).</li>
+ * </ul>
+ */
 @Component
 public class AdMapper {
+    /**
+     * Преобразование сущности в краткое DTO объявления.
+     * @param entity сущность объявления
+     * @return DTO {@link ru.skypro.homework.dto.Ad} или null если вход null
+     */
     public Ad toDto(AdEntity entity) {
         if (entity == null) return null;
         Ad dto = new Ad();
@@ -24,6 +41,11 @@ public class AdMapper {
         return dto;
     }
 
+    /**
+     * Преобразование сущности в расширенное DTO (карточка объявления).
+     * @param entity сущность объявления
+     * @return DTO {@link ru.skypro.homework.dto.ExtendedAd} или null если вход null
+     */
     public ExtendedAd toExtendedDto(AdEntity entity) {
         if (entity == null) return null;
         ExtendedAd dto = new ExtendedAd();
@@ -43,6 +65,12 @@ public class AdMapper {
         return dto;
     }
 
+    /**
+     * Создание новой сущности объявления из входного DTO.
+     * @param dto входные данные (title, price, description)
+     * @param author сущность автора (обязательна)
+     * @return новая несохранённая сущность {@link AdEntity}
+     */
     public AdEntity fromCreate(CreateOrUpdateAd dto, UserEntity author) {
         if (dto == null) return null;
         AdEntity entity = new AdEntity();
@@ -53,6 +81,11 @@ public class AdMapper {
         return entity;
     }
 
+    /**
+     * Обновление существующей сущности объявления данными из входного DTO.
+     * @param dto входные данные
+     * @param target изменяемая сущность
+     */
     public void updateEntity(CreateOrUpdateAd dto, AdEntity target) {
         if (dto == null || target == null) return;
         target.setTitle(dto.getTitle());

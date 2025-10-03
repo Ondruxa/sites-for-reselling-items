@@ -14,6 +14,18 @@ import java.util.List;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
+/**
+ * Центральная конфигурация безопасности приложения.
+ * <p>
+ * Основные задачи:
+ * <ul>
+ *   <li>Определяет (whitelist) эндпоинты.</li>
+ *   <li>Разрешает анонимный доступ к GET /ads (список, карточка) для публичного просмотра.</li>
+ *   <li>Требует роль USER или ADMIN для эндпоинтов /ads/** и /users/**.</li>
+ *   <li>Включает HTTP Basic (для простоты тестирования) + CORS (для фронта на http://localhost:3000).</li>
+ *   <li>Явно разрешает preflight OPTIONS для всех путей.</li>
+ * </ul>
+ */
 @Configuration
 public class WebSecurityConfig {
 
@@ -35,6 +47,12 @@ public class WebSecurityConfig {
         this.userDetailsService = userDetailsService;
     }
 
+    /**
+     * Основная цепочка фильтров Spring Security.
+     * @param http HttpSecurity DSL
+     * @return настроенный {@link SecurityFilterChain}
+     * @throws Exception при ошибках конфигурации
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf().disable()
@@ -52,6 +70,10 @@ public class WebSecurityConfig {
         return http.build();
     }
 
+    /**
+     * Конфигурация CORS для взаимодействия с фронтендом (localhost:3000).
+     * @return источник CORS-конфигурации
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
