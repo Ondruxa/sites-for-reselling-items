@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import ru.skypro.homework.model.ImageEntity;
 import ru.skypro.homework.model.UserEntity;
 import ru.skypro.homework.dto.Role;
 
@@ -29,6 +30,27 @@ public class UserRepositoryTest {
 
     @BeforeEach
     void setUp() {
+        ImageEntity image1 = new ImageEntity();
+        image1.setId("image1-id"); // обязательное поле - id
+        image1.setContentType("image/jpeg");
+        image1.setSize(1024L);
+        image1.setCreatedAt(System.currentTimeMillis());
+        image1 = entityManager.persistAndFlush(image1);
+
+        ImageEntity image2 = new ImageEntity();
+        image2.setId("image2-id");
+        image2.setContentType("image/jpeg");
+        image2.setSize(2048L);
+        image2.setCreatedAt(System.currentTimeMillis());
+        image2 = entityManager.persistAndFlush(image2);
+
+        ImageEntity image3 = new ImageEntity();
+        image3.setId("image3-id");
+        image3.setContentType("image/png");
+        image3.setSize(3072L);
+        image3.setCreatedAt(System.currentTimeMillis());
+        image3 = entityManager.persistAndFlush(image3);
+
         testUser1 = new UserEntity();
         testUser1.setEmail("user1@example.com");
         testUser1.setPassword("password1");
@@ -36,7 +58,7 @@ public class UserRepositoryTest {
         testUser1.setLastName("Doe");
         testUser1.setPhone("+79999999991");
         testUser1.setRole(Role.USER);
-        testUser1.setImage("image1.jpg");
+        testUser1.setImage(image1);
         testUser1 = entityManager.persistAndFlush(testUser1);
 
         testUser2 = new UserEntity();
@@ -46,7 +68,7 @@ public class UserRepositoryTest {
         testUser2.setLastName("Smith");
         testUser2.setPhone("+79999999992");
         testUser2.setRole(Role.ADMIN);
-        testUser2.setImage("image2.jpg");
+        testUser2.setImage(image2);
         testUser2 = entityManager.persistAndFlush(testUser2);
 
         testUser3 = new UserEntity();
@@ -56,7 +78,7 @@ public class UserRepositoryTest {
         testUser3.setLastName("Johnson");
         testUser3.setPhone("+79999999993");
         testUser3.setRole(Role.USER);
-        testUser3.setImage("image3.jpg");
+        testUser3.setImage(image3);
         testUser3 = entityManager.persistAndFlush(testUser3);
     }
 
@@ -118,7 +140,7 @@ public class UserRepositoryTest {
         newUser.setLastName("Brown");
         newUser.setPhone("+79999999994");
         newUser.setRole(Role.USER);
-        newUser.setImage("new_image.jpg");
+       //newUser.setImage("new_image.jpg");
 
         // When - сохраняем пользователя
         UserEntity savedUser = userRepository.save(newUser);

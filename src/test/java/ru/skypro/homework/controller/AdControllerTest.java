@@ -103,14 +103,19 @@ public class AdControllerTest {
     @WithMockUser(username = "test@example.com", roles = {"USER"})
     void getAllAds_ShouldReturnEmptyList() throws Exception {
         // Arrange
-        when(adService.getAllAds()).thenReturn(Collections.emptyList());
+        Ads emptyAds = new Ads();
+        emptyAds.setResults(Collections.emptyList());
+        emptyAds.setCount(0);
+
+        when(adService.getAllAds()).thenReturn(emptyAds);
 
         // Act & Assert
         mockMvc.perform(get("/ads")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$").isEmpty());
+                .andExpect(jsonPath("$.results").isArray())
+                .andExpect(jsonPath("$.results").isEmpty())
+                .andExpect(jsonPath("$.count").value(0));
 
         verify(adService, times(1)).getAllAds();
     }
@@ -128,14 +133,20 @@ public class AdControllerTest {
         Ad ad = new Ad();
         ad.setPk(1);
         ad.setTitle("Test Ad");
-        when(adService.getAllAds()).thenReturn(List.of(ad));
+
+        Ads ads = new Ads();
+        ads.setResults(List.of(ad));
+        ads.setCount(1);
+
+        when(adService.getAllAds()).thenReturn(ads);
 
         // Act & Assert
         mockMvc.perform(get("/ads")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].pk").value(1))
-                .andExpect(jsonPath("$[0].title").value("Test Ad"));
+                .andExpect(jsonPath("$.results[0].pk").value(1))
+                .andExpect(jsonPath("$.results[0].title").value("Test Ad"))
+                .andExpect(jsonPath("$.count").value(1));
 
         verify(adService, times(1)).getAllAds();
     }
@@ -217,14 +228,21 @@ public class AdControllerTest {
     @WithMockUser(username = "test@example.com", roles = {"USER"})
     void cors_ShouldAllowLocalhost3000() throws Exception {
         // Arrange
-        when(adService.getAllAds()).thenReturn(Collections.emptyList());
+        Ads emptyAds = new Ads();
+        emptyAds.setResults(Collections.emptyList());
+        emptyAds.setCount(0);
+
+        when(adService.getAllAds()).thenReturn(emptyAds);
 
         // Act & Assert
         mockMvc.perform(get("/ads")
                         .header("Origin", "http://localhost:3000")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(header().exists("Access-Control-Allow-Origin"));
+                .andExpect(header().exists("Access-Control-Allow-Origin"))
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
+
+        verify(adService, times(1)).getAllAds();
     }
 
     /**
@@ -375,8 +393,12 @@ public class AdControllerTest {
     @WithMockUser(username = "test@example.com", roles = {"USER"})
     void updateAdImage_ShouldReturnImageData() throws Exception {
         // Arrange
-        byte[] imageData = "updated image content".getBytes();
-        when(adService.updateImage(eq(1), any(MultipartFile.class))).thenReturn(imageData);
+        Ad updatedAd = new Ad();
+        updatedAd.setPk(1);
+        updatedAd.setTitle("Test Ad");
+        updatedAd.setPrice(1000);
+        updatedAd.setImage("/images/updated-image.jpg");
+        when(adService.updateImage(eq(1), any(MultipartFile.class))).thenReturn(updatedAd);
 
         MockMultipartFile newImageFile = new MockMultipartFile(
                 "image",
@@ -393,7 +415,9 @@ public class AdControllerTest {
                             return request;
                         }))
                 .andExpect(status().isOk())
-                .andExpect(content().bytes(imageData));
+                .andExpect(jsonPath("$.pk").value(1))
+                .andExpect(jsonPath("$.title").value("Test Ad"))
+                .andExpect(jsonPath("$.image").value("/images/updated-image.jpg"));
 
         verify(adService, times(1)).updateImage(eq(1), any(MultipartFile.class));
     }

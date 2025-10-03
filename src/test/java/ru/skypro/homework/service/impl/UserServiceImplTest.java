@@ -20,8 +20,11 @@ import ru.skypro.homework.dto.Role;
 import ru.skypro.homework.dto.UpdateUser;
 import ru.skypro.homework.dto.User;
 import ru.skypro.homework.mapper.UserMapper;
+import ru.skypro.homework.model.ImageEntity;
 import ru.skypro.homework.model.UserEntity;
 import ru.skypro.homework.repository.UserRepository;
+import ru.skypro.homework.service.ImageService;
+import ru.skypro.homework.service.UserService;
 
 import java.util.Optional;
 
@@ -34,6 +37,9 @@ public class UserServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ImageService imageService;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -317,18 +323,44 @@ public class UserServiceImplTest {
     @Test
     void updateUserImage_WithValidImage_ShouldReturnOkResponse() {
         // Arrange
+        String userEmail = "test@example.com";
+
+        SecurityContextHolder.setContext(securityContext);
         when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getName()).thenReturn("test@example.com");
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
-        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+        when(authentication.getName()).thenReturn(userEmail);
+
+        testUser.setImage(null);
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(testUser));
+
+        ImageEntity mockImageEntity = new ImageEntity();
+        mockImageEntity.setId("avatar-123");
+        mockImageEntity.setContentType("image/jpeg");
+        mockImageEntity.setSize(1024L);
+        mockImageEntity.setCreatedAt(System.currentTimeMillis());
+
+        when(imageService.save(any(MultipartFile.class), anyString())).thenReturn(mockImageEntity);
+
+        when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> {
+            UserEntity savedUser = invocation.getArgument(0);
+            System.out.println("Сохранен пользователь: " + savedUser.getEmail() +
+                    ", аватар: " + (savedUser.getImage() != null ? savedUser.getImage().getId() : "null"));
+            return savedUser;
+        });
 
         // Act
         ResponseEntity<Void> response = userService.updateUserImage(validImage);
 
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode(), "Должен возвращаться OK статус");
-        verify(userRepository).save(testUser);
+
+        // Verify
+        verify(userRepository).findByEmail(userEmail);
+        verify(imageService).save(any(MultipartFile.class), anyString());
+        verify(userRepository).save(any(UserEntity.class));
+
+        verify(imageService, never()).delete(anyString());
     }
+
 
     /**
      * Тест обновления аватара с null изображением
