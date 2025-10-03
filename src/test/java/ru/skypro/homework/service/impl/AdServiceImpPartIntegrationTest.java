@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @Import(TestSecurityConfig.class)
 @DisplayName("Интеграционные тесты через REST API")
-public class AdServiceImpIntegrationTest {
+public class AdServiceImpPartIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

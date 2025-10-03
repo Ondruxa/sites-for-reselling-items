@@ -273,4 +273,5 @@ public class CommentRepositoryTest {
         assertThat(foundComment).isPresent();
         assertThat(foundComment.get().getText()).isEqualTo(updatedText); // Проверяем обновленный текст
     }
+
 }
