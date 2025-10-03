@@ -24,6 +24,24 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Реализация сервиса для работы с объявлениями (AdService).
+ * <p>
+ * Основные функции:
+ * <ul>
+ *   <li>Создание, обновление, удаление объявлений</li>
+ *   <li>Работа с изображениями объявлений</li>
+ *   <li>Получение объявлений и комментариев</li>
+ *   <li>Проверка прав пользователя на действия</li>
+ * </ul>
+ * <p>
+ * Исключения:
+ * <ul>
+ *   <li>IllegalArgumentException — если данные некорректны или отсутствуют</li>
+ *   <li>AccessDeniedException — если недостаточно прав</li>
+ *   <li>IllegalStateException — если не найден текущий пользователь</li>
+ * </ul>
+ */
 @Slf4j
 @Service
 public class AdServiceImp implements AdService {
@@ -49,6 +67,13 @@ public class AdServiceImp implements AdService {
         this.imageService = imageService;
     }
 
+    /**
+     * Создаёт новое объявление и сохраняет изображение, если оно передано.
+     * @param properties DTO с данными объявления
+     * @param image изображение объявления (может быть null)
+     * @throws IllegalStateException если не найден текущий пользователь
+     * @throws IllegalArgumentException если properties отсутствует
+     */
     @Override
     public void addAd(CreateOrUpdateAd properties, MultipartFile image) {
         UserEntity author = getCurrentUser();
@@ -67,6 +92,10 @@ public class AdServiceImp implements AdService {
         }
     }
 
+    /**
+     * Возвращает все объявления.
+     * @return DTO Ads с коллекцией объявлений
+     */
     @Override
     @Transactional(readOnly = true)
     public Ads getAllAds() {
@@ -79,6 +108,12 @@ public class AdServiceImp implements AdService {
         return wrapper;
     }
 
+    /**
+     * Возвращает расширенную информацию по объявлению по id.
+     * @param id идентификатор объявления
+     * @return DTO ExtendedAd
+     * @throws IllegalArgumentException если объявление не найдено
+     */
     @Override
     @Transactional(readOnly = true)
     public ExtendedAd getAdById(Integer id) {
@@ -87,6 +122,12 @@ public class AdServiceImp implements AdService {
         return adMapper.toExtendedDto(entity);
     }
 
+    /**
+     * Удаляет объявление по id, удаляет связанное изображение.
+     * @param id идентификатор объявления
+     * @throws IllegalArgumentException если объявление не найдено
+     * @throws AccessDeniedException если недостаточно прав
+     */
     @Override
     public void removeAd(Integer id) {
         AdEntity entity = adRepository.findById(id)
@@ -101,6 +142,14 @@ public class AdServiceImp implements AdService {
         adRepository.delete(entity);
     }
 
+    /**
+     * Обновляет объявление по id.
+     * @param updatedData DTO с новыми данными
+     * @param id идентификатор объявления
+     * @return DTO Ad
+     * @throws IllegalArgumentException если нет данных или объявление не найдено
+     * @throws AccessDeniedException если недостаточно прав
+     */
     @Override
     @Transactional
     public Ad updateAd(CreateOrUpdateAd updatedData, Integer id) {
@@ -123,6 +172,11 @@ public class AdServiceImp implements AdService {
         return dto;
     }
 
+    /**
+     * Возвращает объявления текущего пользователя.
+     * @return DTO Ads
+     * @throws IllegalStateException если пользователь не найден
+     */
     @Override
     @Transactional(readOnly = true)
     public Ads getUserAds() {
@@ -139,6 +193,14 @@ public class AdServiceImp implements AdService {
         return wrapper;
     }
 
+    /**
+     * Обновляет изображение объявления.
+     * @param id идентификатор объявления
+     * @param file новое изображение
+     * @return DTO Ad
+     * @throws IllegalArgumentException если объявление не найдено или файл пустой
+     * @throws AccessDeniedException если недостаточно прав
+     */
     @Override
     public Ad updateImage(Integer id, MultipartFile file) {
         AdEntity entity = adRepository.findById(id)
@@ -160,6 +222,12 @@ public class AdServiceImp implements AdService {
         return adMapper.toDto(entity);
     }
 
+    /**
+     * Возвращает комментарии к объявлению.
+     * @param adId идентификатор объявления
+     * @return DTO Comments
+     * @throws IllegalArgumentException если объявление не найдено
+     */
     @Override
     @Transactional(readOnly = true)
     public Comments getAdComments(Integer adId) {
@@ -168,6 +236,14 @@ public class AdServiceImp implements AdService {
         return commentMapper.toDtos(list);
     }
 
+    /**
+     * Добавляет комментарий к объявлению.
+     * @param commentData DTO с текстом комментария
+     * @param adId идентификатор объявления
+     * @return DTO Comment
+     * @throws IllegalArgumentException если нет данных или объявление не найдено
+     * @throws IllegalStateException если пользователь не найден
+     */
     @Override
     public Comment addComment(CreateOrUpdateComment commentData, Integer adId) {
         if (commentData == null) {
@@ -184,6 +260,15 @@ public class AdServiceImp implements AdService {
         return commentMapper.toDto(entity);
     }
 
+    /**
+     * Обновляет комментарий к объявлению.
+     * @param updatedData DTO с новым текстом
+     * @param adId идентификатор объявления
+     * @param commentId идентификатор комментария
+     * @return DTO Comment
+     * @throws IllegalArgumentException если нет данных или комментарий не найден
+     * @throws AccessDeniedException если недостаточно прав
+     */
     @Override
     public Comment updateComment(CreateOrUpdateComment updatedData, Integer adId, Integer commentId) {
         if (updatedData == null) {
@@ -200,6 +285,13 @@ public class AdServiceImp implements AdService {
         return commentMapper.toDto(entity);
     }
 
+    /**
+     * Удаляет комментарий к объявлению.
+     * @param adId идентификатор объявления
+     * @param commentId идентификатор комментария
+     * @throws IllegalArgumentException если комментарий не найден
+     * @throws AccessDeniedException если недостаточно прав
+     */
     @Override
     public void deleteComment(Integer adId, Integer commentId) {
         CommentEntity entity = commentRepository.findByIdAndAd_Id(commentId, adId)

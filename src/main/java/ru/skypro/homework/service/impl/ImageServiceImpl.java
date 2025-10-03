@@ -36,6 +36,14 @@ public class ImageServiceImpl implements ImageService {
         this.imageRepository = imageRepository;
     }
 
+    /**
+     * Сохраняет изображение в файловой системе и записывает метаданные в БД.
+     * @param file исходный файл изображения
+     * @param prefix префикс для имени файла (например, ad_{id} или user_{id})
+     * @return сохранённая сущность изображения с присвоенным идентификатором
+     * @throws IllegalArgumentException если файл пустой или не предоставлен
+     * @throws RuntimeException при ошибках чтения файла или записи на диск
+     */
     @Override
     public ImageEntity save(MultipartFile file, String prefix) {
         if (file == null || file.isEmpty()) {
@@ -67,6 +75,13 @@ public class ImageServiceImpl implements ImageService {
         return imageRepository.save(entity);
     }
 
+    /**
+     * Загружает бинарное содержимое изображения из файловой системы по идентификатору.
+     * @param id идентификатор изображения (имя файла)
+     * @return объект с байтами изображения и MIME-типом
+     * @throws IllegalArgumentException если изображение/файл не найден
+     * @throws RuntimeException при ошибке чтения файла
+     */
     @Override
     public ImageContent load(String id) {
         if (id == null) throw new IllegalArgumentException("ID изображения не указан");
@@ -88,6 +103,11 @@ public class ImageServiceImpl implements ImageService {
         }
     }
 
+    /**
+     * Возвращает изображение как HTTP-ответ с корректными заголовками.
+     * @param id идентификатор изображения (имя файла)
+     * @return 200 OK с байтами и Content-Type; 404 если не найдено; 500 при внутренней ошибке
+     */
     @Override
     public ResponseEntity<byte[]> getImage(String id) {
         try {
@@ -114,6 +134,11 @@ public class ImageServiceImpl implements ImageService {
         }
     }
 
+    /**
+     * Удаляет изображение: файл на диске и запись в БД (если существует).
+     * Игнорирует отсутствующие ресурсы, пишет предупреждения в лог при сбоях удаления файла.
+     * @param id идентификатор изображения (имя файла)
+     */
     @Override
     public void delete(String id) {
         if (id == null || id.isBlank()) return;

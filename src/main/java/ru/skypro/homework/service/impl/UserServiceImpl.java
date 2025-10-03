@@ -42,6 +42,12 @@ public class UserServiceImpl implements UserService {
         this.adRepository = adRepository;
     }
 
+    /**
+     * Изменяет пароль текущего пользователя.
+     * @param newPassword DTO с текущим и новым паролем
+     * @throws IllegalStateException если текущий пользователь не найден
+     * @throws IllegalArgumentException если текущий пароль не совпадает
+     */
     @Override
     @Transactional
     public void setPassword(NewPassword newPassword) {
@@ -56,6 +62,10 @@ public class UserServiceImpl implements UserService {
         userRepository.save(current);
     }
 
+    /**
+     * Возвращает профиль текущего пользователя.
+     * @return DTO User с данными профиля
+     */
     @Override
     @Transactional(readOnly = true)
     public User getUser() {
@@ -63,6 +73,12 @@ public class UserServiceImpl implements UserService {
         return userMapper.toDto(current);
     }
 
+    /**
+     * Обновляет профиль текущего пользователя.
+     * @param updateUser DTO с новыми данными (имя, фамилия, телефон)
+     * @return тот же DTO UpdateUser как подтверждение
+     * @throws IllegalStateException если текущий пользователь не найден
+     */
     @Override
     @Transactional
     public UpdateUser updateUser(UpdateUser updateUser) {
@@ -75,6 +91,11 @@ public class UserServiceImpl implements UserService {
         return updateUser;
     }
 
+    /**
+     * Обновляет аватар текущего пользователя, удаляя предыдущий файл и запись при наличии.
+     * @param image новое изображение аватара
+     * @return 200 OK при успехе, 400 при некорректном вводе, 500 при внутренней ошибке
+     */
     @Override
     @Transactional
     public ResponseEntity<Void> updateUserImage(MultipartFile image) {
@@ -99,6 +120,10 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    /**
+     * Удаляет текущего пользователя, предварительно удаляя связанные изображения (аватар и изображения объявлений).
+     * @throws IllegalStateException если текущий пользователь не найден
+     */
     @Override
     @Transactional
     public void deleteCurrentUser() {
@@ -118,6 +143,11 @@ public class UserServiceImpl implements UserService {
         userRepository.delete(current);
     }
 
+    /**
+     * Ищет пользователя по email.
+     * @param email адрес электронной почты
+     * @return Optional с сущностью пользователя, если найден
+     */
     @Override
     @Transactional(readOnly = true)
     public Optional<UserEntity> findByEmail(String email) {
