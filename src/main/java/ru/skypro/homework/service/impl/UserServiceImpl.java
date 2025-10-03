@@ -1,26 +1,25 @@
 package ru.skypro.homework.service.impl;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import ru.skypro.homework.dto.NewPassword;
 import ru.skypro.homework.dto.UpdateUser;
 import ru.skypro.homework.dto.User;
 import ru.skypro.homework.mapper.UserMapper;
+import ru.skypro.homework.model.AdEntity;
+import ru.skypro.homework.model.ImageEntity;
 import ru.skypro.homework.model.UserEntity;
+import ru.skypro.homework.repository.AdRepository;
 import ru.skypro.homework.repository.UserRepository;
+import ru.skypro.homework.service.ImageService;
 import ru.skypro.homework.service.UserService;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -28,19 +27,29 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
-
-    @Value("${images.upload.dir:images}")
-    private String imagesDir;
+    private final ImageService imageService;
+    private final AdRepository adRepository;
 
     public UserServiceImpl(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
-                           UserMapper userMapper) {
+                           UserMapper userMapper,
+                           ImageService imageService,
+                           AdRepository adRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.userMapper = userMapper;
+        this.imageService = imageService;
+        this.adRepository = adRepository;
     }
 
+    /**
+     * Изменяет пароль текущего пользователя.
+     * @param newPassword DTO с текущим и новым паролем
+     * @throws IllegalStateException если текущий пользователь не найден
+     * @throws IllegalArgumentException если текущий пароль не совпадает
+     */
     @Override
+    @Transactional
     public void setPassword(NewPassword newPassword) {
         UserEntity current = getCurrentUserEntity();
         if (current == null) {
@@ -53,13 +62,25 @@ public class UserServiceImpl implements UserService {
         userRepository.save(current);
     }
 
+    /**
+     * Возвращает профиль текущего пользователя.
+     * @return DTO User с данными профиля
+     */
     @Override
+    @Transactional(readOnly = true)
     public User getUser() {
         UserEntity current = getCurrentUserEntity();
         return userMapper.toDto(current);
     }
 
+    /**
+     * Обновляет профиль текущего пользователя.
+     * @param updateUser DTO с новыми данными (имя, фамилия, телефон)
+     * @return тот же DTO UpdateUser как подтверждение
+     * @throws IllegalStateException если текущий пользователь не найден
+     */
     @Override
+    @Transactional
     public UpdateUser updateUser(UpdateUser updateUser) {
         UserEntity current = getCurrentUserEntity();
         if (current == null) {
@@ -70,7 +91,13 @@ public class UserServiceImpl implements UserService {
         return updateUser;
     }
 
+    /**
+     * Обновляет аватар текущего пользователя, удаляя предыдущий файл и запись при наличии.
+     * @param image новое изображение аватара
+     * @return 200 OK при успехе, 400 при некорректном вводе, 500 при внутренней ошибке
+     */
     @Override
+    @Transactional
     public ResponseEntity<Void> updateUserImage(MultipartFile image) {
         UserEntity current = getCurrentUserEntity();
         if (current == null) {
@@ -80,24 +107,49 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.badRequest().build();
         }
         try {
-            String original = image.getOriginalFilename();
-            String ext = original != null && original.contains(".") ? original.substring(original.lastIndexOf('.')) : "";
-            String fileName = "user_" + current.getId() + "_" + UUID.randomUUID() + ext;
-            Path dir = Paths.get(imagesDir);
-            if (!Files.exists(dir)) {
-                Files.createDirectories(dir);
-            }
-            Path target = dir.resolve(fileName);
-            Files.write(target, image.getBytes());
-            current.setImage("/images/" + fileName);
+            ImageEntity oldImage = current.getImage();
+            ImageEntity saved = imageService.save(image, "user_" + current.getId());
+            current.setImage(saved);
             userRepository.save(current);
+            if (oldImage != null) {
+                imageService.delete(oldImage.getId());
+            }
             return ResponseEntity.ok().build();
-        } catch (IOException e) {
+        } catch (RuntimeException e) {
             return ResponseEntity.internalServerError().build();
         }
     }
 
+    /**
+     * Удаляет текущего пользователя, предварительно удаляя связанные изображения (аватар и изображения объявлений).
+     * @throws IllegalStateException если текущий пользователь не найден
+     */
     @Override
+    @Transactional
+    public void deleteCurrentUser() {
+        UserEntity current = getCurrentUserEntity();
+        if (current == null) {
+            throw new IllegalStateException("Текущий пользователь не найден");
+        }
+        adRepository.findAllByAuthor_Id(current.getId()).stream()
+                .map(AdEntity::getImage)
+                .filter(java.util.Objects::nonNull)
+                .map(ImageEntity::getId)
+                .distinct()
+                .forEach(imageService::delete);
+        if (current.getImage() != null) {
+            imageService.delete(current.getImage().getId());
+        }
+        userRepository.delete(current);
+    }
+
+    /**
+     * Ищет пользователя по email.
+     * @param email адрес электронной почты
+     * @return Optional с сущностью пользователя, если найден
+     */
+    @Override
+    @Transactional(readOnly = true)
     public Optional<UserEntity> findByEmail(String email) {
         return userRepository.findByEmail(email);
     }

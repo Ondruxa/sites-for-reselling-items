@@ -1,57 +1,48 @@
 package ru.skypro.homework.config;
 
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-import ru.skypro.homework.model.UserEntity;
+/**
+ * Содержит только чтение данных и не вносит бизнес‑логики.
+ */
+public class UserSecurityDTO implements org.springframework.security.core.userdetails.UserDetails {
+    private final ru.skypro.homework.model.UserEntity user;
 
-import java.util.Collection;
-import java.util.Collections;
-
-public class UserSecurityDTO implements UserDetails {
-    private final UserEntity user;
-
-    public UserSecurityDTO(UserEntity user) {
+    public UserSecurityDTO(ru.skypro.homework.model.UserEntity user) {
         this.user = user;
     }
 
+    /**
+     * Возвращает коллекцию прав (одна роль = одно GrantedAuthority).
+     */
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority(user.getRole().name()));
+    public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {
+        return java.util.Collections.singletonList(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority(user.getRole().name()));
     }
 
+    /** @return хэш пароля пользователя */
     @Override
-    public String getPassword() {
-        return user.getPassword();
-    }
+    public String getPassword() { return user.getPassword(); }
 
+    /** @return email пользователя (используется как логин) */
     @Override
-    public String getUsername() {
-        return user.getEmail();
-    }
+    public String getUsername() { return user.getEmail(); }
 
+    /** Аккаунт не протухает в текущей реализации */
     @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
+    public boolean isAccountNonExpired() { return true; }
 
+    /** Блокировка аккаунта не реализована */
     @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
+    public boolean isAccountNonLocked() { return true; }
 
+    /** Срок действия учётных данных не ограничен */
     @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
+    public boolean isCredentialsNonExpired() { return true; }
 
+    /** Все активные пользователи считаются включёнными */
     @Override
-    public boolean isEnabled() {
-        return true;
-    }
+    public boolean isEnabled() { return true; }
 
-    public UserEntity getUser() {
-        return user;
-    }
+    /** Доменная сущность (для сервисного слоя при необходимости). */
+    public ru.skypro.homework.model.UserEntity getUser() { return user; }
 }
-

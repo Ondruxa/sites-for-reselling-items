@@ -2,6 +2,10 @@ package ru.skypro.homework.dto;
 
 import lombok.Data;
 
+/**
+ * DTO для обновления профиля пользователя.
+ * Используется при изменении данных пользователя через профиль.
+ */
 @Data
 public class UpdateUser {
     /**
@@ -12,7 +16,6 @@ public class UpdateUser {
     /**
      * Фамилия пользователя (min length: 3, max length: 10)
      */
-
     private String lastName;
 
     /**

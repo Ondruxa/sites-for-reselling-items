@@ -49,3 +49,29 @@ CREATE INDEX idx_comments_author_id ON comments(author_id);
 --changeset vladimirsa:008-create-hibernate-sequence
 CREATE SEQUENCE hibernate_sequence START WITH 1 INCREMENT BY 1;
 
+--changeset vladimirsa:009-create-images
+CREATE TABLE images (
+    id VARCHAR(100) PRIMARY KEY,
+    data BYTEA NOT NULL,
+    content_type VARCHAR(120),
+    size BIGINT
+);
+
+--changeset vladimirsa:010-alter-images-add-metadata
+ALTER TABLE images ALTER COLUMN data DROP NOT NULL;
+ALTER TABLE images ADD COLUMN created_at BIGINT;
+ALTER TABLE images ADD COLUMN checksum VARCHAR(64);
+
+--changeset vladimirsa:011-add-image-id-columns
+ALTER TABLE ads ADD COLUMN image_id VARCHAR(100);
+ALTER TABLE users ADD COLUMN image_id VARCHAR(100);
+ALTER TABLE ads ADD CONSTRAINT fk_ads_image FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE SET NULL;
+ALTER TABLE users ADD CONSTRAINT fk_users_image FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE SET NULL;
+
+--changeset vladimirsa:012-drop-old-image-columns
+ALTER TABLE ads DROP COLUMN image;
+ALTER TABLE users DROP COLUMN image;
+
+--changeset vladimirsa:014-drop-unused-image-columns
+ALTER TABLE images DROP COLUMN IF EXISTS data;
+ALTER TABLE images DROP COLUMN IF EXISTS checksum;

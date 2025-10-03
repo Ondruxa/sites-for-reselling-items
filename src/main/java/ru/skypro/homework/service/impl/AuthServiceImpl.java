@@ -8,6 +8,20 @@ import ru.skypro.homework.model.UserEntity;
 import ru.skypro.homework.repository.UserRepository;
 import ru.skypro.homework.service.AuthService;
 
+/**
+ * Реализация сервиса аутентификации пользователей.
+ * <p>
+ * Основные функции:
+ * <ul>
+ *   <li>Аутентификация пользователя по логину и паролю</li>
+ *   <li>Регистрация нового пользователя</li>
+ * </ul>
+ * <p>
+ * Исключения:
+ * <ul>
+ *   <li>IllegalArgumentException — если данные некорректны</li>
+ * </ul>
+ */
 @Service
 public class AuthServiceImpl implements AuthService {
 
@@ -23,6 +37,12 @@ public class AuthServiceImpl implements AuthService {
         this.userMapper = userMapper;
     }
 
+    /**
+     * Аутентифицирует пользователя по логину и паролю.
+     * @param userName логин (email)
+     * @param password пароль в открытом виде
+     * @return true, если пара логин/пароль валидна; иначе false
+     */
     @Override
     public boolean login(String userName, String password) {
         return userRepository.findByEmail(userName)
@@ -30,6 +50,11 @@ public class AuthServiceImpl implements AuthService {
                 .orElse(false);
     }
 
+    /**
+     * Регистрирует нового пользователя.
+     * @param register DTO с данными регистрации
+     * @return true, если регистрация прошла успешно; false, если пользователь уже существует
+     */
     @Override
     public boolean register(Register register) {
         if (userRepository.findByEmail(register.getUsername()).isPresent()) {

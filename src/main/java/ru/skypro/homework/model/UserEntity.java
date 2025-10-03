@@ -34,6 +34,7 @@ public class UserEntity {
     @Column(nullable = false)
     private ru.skypro.homework.dto.Role role;
 
-    private String image;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "image_id")
+    private ImageEntity image;
 }
-

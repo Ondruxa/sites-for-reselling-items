@@ -2,50 +2,46 @@ package ru.skypro.homework.dto;
 
 import lombok.Data;
 
+/**
+ * DTO для расширенного представления объявления.
+ * Содержит подробную информацию для детального отображения объявления.
+ */
 @Data
 public class ExtendedAd {
     /**
-     * ID объявления (integer)
+     * Идентификатор объявления.
      */
     private Integer pk;
-
     /**
-     * Имя автора объявления (string)
+     * Имя автора объявления.
      */
     private String authorFirstName;
-
     /**
-     * Фамилия автора объявления (string)
+     * Фамилия автора объявления.
      */
     private String authorLastName;
-
     /**
-     * Описание объявления (string)
+     * Описание объявления.
      */
     private String description;
-
     /**
-     * Электронная почта автора объявления (string)
+     * Email автора объявления.
      */
     private String email;
-
     /**
-     * Ссылка на изображение объявления (string)
+     * Ссылка на изображение объявления.
      */
     private String image;
-
     /**
-     * Номер телефона автора объявления (string)
+     * Телефон автора объявления.
      */
     private String phone;
-
     /**
-     * Цена объявления (integer)
+     * Цена объявления.
      */
     private Integer price;
-
     /**
-     * Заголовок объявления (string)
+     * Заголовок объявления.
      */
     private String title;
 }

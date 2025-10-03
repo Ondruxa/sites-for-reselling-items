@@ -2,40 +2,38 @@ package ru.skypro.homework.dto;
 
 import lombok.Data;
 
+/**
+ * DTO для передачи информации о пользователе.
+ * Используется для отображения профиля пользователя на фронте.
+ */
 @Data
 public class User {
     /**
-     * ID пользователя (integer)
+     * Идентификатор пользователя.
      */
     private Integer id;
-
     /**
-     * Email пользователя (login)
+     * Email пользователя (логин).
      */
     private String email;
-
     /**
-     * Имя пользователя (string)
+     * Имя пользователя.
      */
     private String firstName;
-
     /**
-     * Фамилия пользователя (string)
+     * Фамилия пользователя.
      */
     private String lastName;
-
     /**
-     * Телефон пользователя (string)
+     * Телефон пользователя.
      */
     private String phone;
-
     /**
-     * Роль пользователя (USER | ADMIN)
+     * Роль пользователя (USER | ADMIN).
      */
     private String role;
-
     /**
-     * Ссылка на аватар пользователя (string)
+     * Ссылка на аватар пользователя.
      */
     private String image;
 }

@@ -4,15 +4,19 @@ import lombok.Data;
 
 import java.util.List;
 
+/**
+ * DTO для передачи списка комментариев и их количества.
+ * Используется для отображения коллекции комментариев на фронте.
+ */
 @Data
 public class Comments {
     /**
-     * Общее количество комментариев (integer)
+     * Общее количество комментариев.
      */
     private Integer count;
 
     /**
-     * Массив комментариев (List of CommentDto)
+     * Список комментариев.
      */
     private List<Comment> results;
 }
